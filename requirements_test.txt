@@ -1,4 +1,4 @@
-# API-layer replay tests (no Home Assistant needed): pytest tests/test_api.py
+# Replay tests (no Home Assistant needed): pytest
 pytest
 pytest-asyncio
 aioresponses

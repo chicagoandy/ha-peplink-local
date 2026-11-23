@@ -34,7 +34,7 @@ async def async_setup_entry(
     entities += [
         PeplinkWifiNetworkSelect(coordinator, conn)
         for conn in connections
-        if wan_data.is_wifi(conn) and conn.get("enable")
+        if wan_data.is_wifi(conn)
     ]
     async_add_entities(entities)
 
@@ -89,6 +89,8 @@ class PeplinkWifiNetworkSelect(PeplinkControlEntity, SelectEntity):
 
     _attr_name = "Network"
     _attr_icon = "mdi:wifi-star"
+
+    _requires_enabled_wan = True
 
     def __init__(self, coordinator: Any, conn: dict[str, Any]) -> None:
         super().__init__(coordinator, str(conn.get("id")), "wifi_network")

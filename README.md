@@ -45,7 +45,7 @@ This custom integration allows you to monitor and track your Peplink router from
   - **Reset Cellular Module** and **Rescan Cellular Network** buttons for cellular WANs
   - **Reboot** button for the router
   - **Reboot / Stow / Unstow Starlink** buttons for a WAN named "Starlink" (firmware 8.5.0+, needs a Care Plan)
-- **Wi-Fi WAN networks** (for each enabled Wi-Fi WAN):
+- **Wi-Fi WAN networks** (for each Wi-Fi WAN; the controls are unavailable while that WAN is disabled):
   - **Scan Networks** button, **Nearby Networks** sensor (count; list with signal, channel, security, saved)
   - **Saved Networks** sensor (count; list with security, auto-connect and priority; passwords are never shown)
   - **Network** select: networks in range and saved networks. Choosing one does not join it

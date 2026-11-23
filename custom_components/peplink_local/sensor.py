@@ -528,7 +528,7 @@ async def async_setup_entry(
 
     # Wi-Fi WAN scan results and last join result.
     for conn in coordinator.data.get("wan_status", {}).get("connection", []):
-        if wan_data.is_wifi(conn) and conn.get("enable"):
+        if wan_data.is_wifi(conn):
             entities.append(PeplinkWifiNetworksSensor(coordinator, conn))
             entities.append(PeplinkWifiJoinResultSensor(coordinator, conn))
             entities.append(PeplinkWifiSavedSensor(coordinator, conn))

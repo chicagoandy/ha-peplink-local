@@ -1,0 +1,224 @@
+{
+  "response": {
+    "1": {
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "enable": true,
+      "locked": false,
+      "managementOnly": false,
+      "message": "No Cable Detected",
+      "method": "dhcp",
+      "mtu": 1440,
+      "name": "Starlink",
+      "portId": 1,
+      "priority": 3,
+      "routingMode": "NAT",
+      "statusLed": "red",
+      "type": "ethernet",
+      "uptime": 0,
+      "virtual": false,
+      "virtualType": "ethernet"
+    },
+    "2": {
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "cellular": {
+        "carrier": {
+          "country": "United States of America",
+          "name": "Google Fi"
+        },
+        "carrierAggregation": true,
+        "cellTower": {
+          "cellPlmn": 900001,
+          "tac": 900001
+        },
+        "dataTechnology": "5G SA",
+        "eid": "eid-1",
+        "esn": "",
+        "firmware": "RM520NGLAAR01A08M4G",
+        "imei": "imei-1",
+        "manufacturer": "Quectel",
+        "mcc": "310",
+        "meid": {
+          "dec": "",
+          "hex": ""
+        },
+        "mnc": "260",
+        "mobileType": "5G",
+        "model": "RM520N-GL",
+        "modulePowerOn": true,
+        "network": "5G",
+        "rat": [
+          {
+            "band": [
+              {
+                "channel": 125530,
+                "channelWidth": "20 MHz",
+                "name": "5G Band n71 (600 MHz)",
+                "pci": 900001,
+                "signal": {
+                  "rsrp": -105,
+                  "rsrq": -16.0,
+                  "sinr": 11.0
+                }
+              },
+              {
+                "channel": 501390,
+                "channelWidth": "80 MHz",
+                "name": "5G Band n41 (2500 MHz)",
+                "pci": 900002
+              }
+            ],
+            "name": ""
+          }
+        ],
+        "signalLevel": 4,
+        "sim": {
+          "1": {
+            "active": true,
+            "apn": "h2g2",
+            "autoApn": true,
+            "bandwidthAllowanceMonitor": {
+              "enable": false,
+              "hasSmtp": false
+            },
+            "iccid": "iccid-1",
+            "imsi": "imsi-1",
+            "mtn": "mtn-1",
+            "simCardDetected": true
+          },
+          "2": {
+            "active": false,
+            "autoApn": true,
+            "bandwidthAllowanceMonitor": {
+              "enable": false,
+              "hasSmtp": false
+            },
+            "simCardDetected": false
+          },
+          "order": [
+            1,
+            2
+          ]
+        },
+        "speedfusionConnect5gLte": {
+          "active": false,
+          "iccid": "iccid-2",
+          "imsi": "imsi-2"
+        }
+      },
+      "dns": [
+        "192.0.0.1"
+      ],
+      "enable": true,
+      "gateway": "192.0.0.3",
+      "ip": "192.0.0.2",
+      "locked": false,
+      "managementOnly": false,
+      "mask": 31,
+      "message": "Standby",
+      "method": "dhcp",
+      "mtu": 1428,
+      "name": "Google Fi",
+      "portId": 2,
+      "priority": 4,
+      "routingMode": "NAT",
+      "statusLed": "yellow",
+      "type": "cellular",
+      "uptime": 0,
+      "virtual": false,
+      "virtualType": "cellular"
+    },
+    "3": {
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "enable": false,
+      "locked": false,
+      "managementOnly": false,
+      "message": "Disabled",
+      "method": "unknown",
+      "mtu": 1500,
+      "name": "Wi-Fi WAN on 2.4 GHz",
+      "portId": 3,
+      "routingMode": "IP Forwarding",
+      "statusLed": "gray",
+      "type": "wifi",
+      "uptime": 0,
+      "virtual": false,
+      "virtualType": "wifi"
+    },
+    "4": {
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "dns": [
+        "192.168.1.1"
+      ],
+      "enable": true,
+      "gateway": "192.168.1.1",
+      "gatewayUrl": "../../WAN4/Gateway/",
+      "ip": "192.168.1.4",
+      "locked": false,
+      "managementOnly": false,
+      "mask": 24,
+      "message": "Connected to ssid-1",
+      "method": "dhcp",
+      "mtu": 1500,
+      "name": "Wi-Fi WAN on 5 GHz",
+      "portId": 4,
+      "priority": 1,
+      "routingMode": "IP Forwarding",
+      "statusLed": "green",
+      "type": "wifi",
+      "uptime": 70978,
+      "virtual": false,
+      "virtualType": "wifi",
+      "wifi": {
+        "bssid": "02:00:00:00:00:15",
+        "channel": 36,
+        "signal": {
+          "level": 4,
+          "strength": -65
+        },
+        "ssid": "ssid-1"
+      }
+    },
+    "5": {
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "enable": false,
+      "locked": false,
+      "managementOnly": false,
+      "message": "Disabled",
+      "method": "dhcp",
+      "name": "VLAN WAN 1",
+      "portId": 5,
+      "routingMode": "NAT",
+      "statusLed": "gray",
+      "type": "wovlan",
+      "uptime": 0,
+      "virtual": false,
+      "virtualType": "wovlan"
+    },
+    "order": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "reportTimestamp": 1795445623,
+    "supportGatewayProxy": true,
+    "timestamp": 1795445623
+  },
+  "stat": "ok"
+}

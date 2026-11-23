@@ -1,0 +1,8 @@
+{
+  "response": {
+    "enable": true,
+    "support": true,
+    "wanDependent": false
+  },
+  "stat": "ok"
+}

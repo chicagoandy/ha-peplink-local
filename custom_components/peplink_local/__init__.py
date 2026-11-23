@@ -47,10 +47,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     host = entry.data[CONF_HOST]
     username = entry.data[CONF_USERNAME]
     password = entry.data[CONF_PASSWORD]
-    verify_ssl = entry.data.get(CONF_VERIFY_SSL, True)
-    
-    # Get poll frequency from config, fall back to default if not specified
-    poll_frequency = entry.data.get(CONF_POLL_FREQUENCY, DEFAULT_POLL_FREQUENCY)
+    # Options (set via the options flow) override the values entered at setup.
+    settings = {**entry.data, **entry.options}
+    verify_ssl = settings.get(CONF_VERIFY_SSL, True)
+    poll_frequency = settings.get(CONF_POLL_FREQUENCY, DEFAULT_POLL_FREQUENCY)
 
     session = async_get_clientsession(hass, verify_ssl=verify_ssl)
 
@@ -107,6 +107,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+        # Reload when options change so a new poll frequency / SSL setting applies.
+        entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
         return True
 
     except PeplinkAuthFailed as err:
@@ -126,10 +129,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the config entry after its options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):

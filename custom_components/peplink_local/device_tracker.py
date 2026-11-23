@@ -55,38 +55,35 @@ async def async_setup_entry(
     else:
         _LOGGER.debug("Router does not have GPS capability - skipping GPS tracker")
     
-    # Create a device tracker for each client
-    if coordinator.data and "clients" in coordinator.data:
-        _LOGGER.debug("Client data found in coordinator: %s", coordinator.data["clients"])
-        client_data = coordinator.data["clients"]
-        
-        if "client" in client_data:
-            _LOGGER.debug("Clients found: %s", client_data["client"])
-            for client in client_data["client"]:
-                if "mac" in client:
-                    _LOGGER.debug("Creating device tracker for client: %s (%s)", 
-                                 client.get("name", "Unknown"), client.get("mac"))
-                    entities.append(
-                        PeplinkClientTracker(
-                            coordinator,
-                            entry.entry_id,
-                            client.get("name", "Unknown"),
-                            client.get("mac"),
-                        )
-                    )
-                else:
-                    _LOGGER.warning("Client missing MAC address: %s", client)
-        else:
-            _LOGGER.warning("No 'client' key in client data: %s", client_data)
-    else:
-        _LOGGER.warning("No client data found in coordinator data: %s", coordinator.data)
-    
+    # One tracker per client MAC. New clients that show up later are added on
+    # the next coordinator update, not only the ones present at startup.
+    known_macs: set[str] = set()
+
+    def _new_client_trackers() -> list[PeplinkClientTracker]:
+        new_entities: list[PeplinkClientTracker] = []
+        clients = (coordinator.data or {}).get("clients", {}).get("client", [])
+        for client in clients:
+            mac = client.get("mac")
+            if not mac or mac == "unknown" or mac in known_macs:
+                continue
+            known_macs.add(mac)
+            new_entities.append(
+                PeplinkClientTracker(coordinator, entry.entry_id, client.get("name"), mac)
+            )
+        return new_entities
+
+    entities.extend(_new_client_trackers())
     if entities:
         _LOGGER.debug("Adding %d Peplink device trackers", len(entities))
-        async_add_entities(entities, True)
-    else:
-        _LOGGER.warning("No Peplink device trackers created")
+        async_add_entities(entities)
 
+    @callback
+    def _async_add_new_clients() -> None:
+        if new_entities := _new_client_trackers():
+            _LOGGER.debug("Adding %d newly seen client trackers", len(new_entities))
+            async_add_entities(new_entities)
+
+    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_clients))
 
 class PeplinkGPSTracker(CoordinatorEntity, TrackerEntity):
     """Representation of the Peplink router GPS location."""
@@ -179,7 +176,20 @@ class PeplinkGPSTracker(CoordinatorEntity, TrackerEntity):
 
 
 class PeplinkClientTracker(CoordinatorEntity, ScannerEntity):
-    """Representation of a Peplink client device tracker."""
+    """Representation of a Peplink client device tracker.
+
+    Naming follows Home Assistant's router-tracker convention: the entity has
+    no name of its own and takes its device's name. ScannerEntity creates that
+    device from the MAC address and names it after ``hostname`` (the client
+    name the router reports). If another integration already has a device
+    with this MAC (ESPHome, WLED, a phone...), the tracker joins that device
+    and uses its name. The MAC stays the hidden unique ID, as for every
+    router integration. Like other router trackers, new client trackers are
+    disabled by default (ScannerEntity's default); enable the ones you want.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = None
 
     def __init__(
         self,
@@ -190,9 +200,10 @@ class PeplinkClientTracker(CoordinatorEntity, ScannerEntity):
     ):
         """Initialize the device tracker."""
         super().__init__(coordinator)
-        self._client_name = client_name
+        self._client_name = client_name or client_mac
         self._client_mac = client_mac
-        self._attr_name = client_name
+        # Names the auto-created device; None falls back to the MAC address.
+        self._attr_hostname = client_name if client_name and client_name != "Unknown Device" else None
         self._is_connected = False
         self._ip_address = None
         self._mac_address = client_mac

@@ -51,7 +51,7 @@ def mock_router(m: aioresponses, folder: Path, wan_file: str = "status.wan.conne
     )
     # Query parameters may arrive in any order (aiohttp normalises them).
     cgi = re.escape(f"{BASE}/cgi-bin/MANGA/api.cgi?")
-    for func in ("status.system.info", "status.traffic", "info.location"):
+    for func in ("status.system.info", "status.traffic"):
         m.get(re.compile(rf"^{cgi}(.*&)?func={re.escape(func)}(&.*)?$"),
               payload=load(folder, f"cgi.{func}"), repeat=True)
 
@@ -271,6 +271,27 @@ async def test_location_failure_means_no_gps(api: PeplinkAPI) -> None:
         m.get(f"{BASE}/api/info.location", payload={"stat": "fail", "code": 404, "message": "Not found"})
         await api.connect()
         assert (await api.get_location())["gps"] is False
+
+
+async def test_cellular_module_temperature(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.post(f"{BASE}/api/status.cellularModule.temperature",
+               payload={"stat": "ok", "response": {"temperature": 41}})
+        await api.connect()
+        assert await api.get_cellular_module_temperature(2) == 41.0
+        sent = next(v for k, v in m.requests.items() if "cellularModule" in str(k[1]))
+        assert sent[0].kwargs["json"] == {"connId": 2}
+
+
+async def test_cellular_module_temperature_failure(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.post(f"{BASE}/api/status.cellularModule.temperature",
+               payload={"stat": "fail", "code": 400, "message": "Module not ready"})
+        await api.connect()
+        with pytest.raises(PeplinkCommandError):
+            await api.get_cellular_module_temperature(2)
 
 
 async def test_firmware_version_from_info_firmware(api: PeplinkAPI) -> None:

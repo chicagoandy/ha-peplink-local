@@ -536,7 +536,6 @@ class PeplinkAPI:
                         "model": device_info.get("model", ""),
                         "product_code": device_info.get("productCode", ""),
                         "hardware_revision": device_info.get("hardwareRevision", ""),
-                        "firmware_version": device_info.get("firmwareVersion", ""),
                         "host": device_info.get("host", ""),
                         "pepvpn_version": device_info.get("pepvpnVersion", "")
                     }
@@ -735,7 +734,6 @@ class PeplinkAPI:
                         "model": device_info.get("model", ""),
                         "product_code": device_info.get("productCode", ""),
                         "hardware_revision": device_info.get("hardwareRevision", ""),
-                        "firmware_version": device_info.get("firmwareVersion", ""),
                         "host": device_info.get("host", ""),
                         "pepvpn_version": device_info.get("pepvpnVersion", "")
                     }
@@ -878,15 +876,8 @@ class PeplinkAPI:
                 }
         """
         try:
-            # Documented /api/info.location (fw 8.0.1+) first; fall back to the
-            # web-UI endpoint for older firmware or if it fails.
-            try:
-                response = await self._make_api_request("info.location", public_api=True)
-            except Exception as err:
-                _LOGGER.debug("Documented info.location failed (%s), using web-UI endpoint", err)
-                response = None
-            if not (isinstance(response, dict) and response.get("stat") == "ok"):
-                response = await self._make_api_request("info.location", public_api=False)
+            # Documented /api/info.location (fw 8.0.1+).
+            response = await self._make_api_request("info.location", public_api=True)
             
             if "stat" in response and response["stat"] == "ok" and "response" in response:
                 location_data = response["response"]

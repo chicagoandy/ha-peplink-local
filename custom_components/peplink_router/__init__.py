@@ -300,9 +300,10 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             # Documented API (required): WAN status and clients. If either
             # fails, the update fails.
-            # Router web-UI API (optional, undocumented): system info and
-            # traffic. Location tries the documented /api/info.location first.
-            # A failed optional call only empties its own sensors.
+            # Optional: GPS (documented info.location; some models have no GPS)
+            # and the undocumented web-UI calls for system info and traffic,
+            # which have no documented equivalent. A failed optional call only
+            # empties its own sensors.
             results = await asyncio.gather(
                 self.api.get_wan_status(),
                 self.api.get_clients(),
@@ -332,7 +333,7 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             device_info = {"device_info": system_info.get("device_info", {})}
             system_time = system_info.get("system_time", {})
 
-            # Firmware version from the documented info.firmware (hourly).
+            # Firmware version: documented info.firmware only (hourly).
             if self._firmware_at is None or time.monotonic() - self._firmware_at > 3600:
                 try:
                     version = await self.api.get_firmware_version()
@@ -356,8 +357,6 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if device_info_data:
                 if device_info_data.get("model"):
                     self.model = device_info_data.get("model")
-                if device_info_data.get("firmware_version"):
-                    self.firmware = device_info_data.get("firmware_version")
             if self._documented_firmware:
                 self.firmware = self._documented_firmware
                 device_info_data = {**device_info_data, "firmware_version": self._documented_firmware}

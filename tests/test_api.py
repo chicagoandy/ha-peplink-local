@@ -127,7 +127,7 @@ async def test_system_info(api: PeplinkAPI) -> None:
     device = info["device_info"]
     assert device["model"] == "Peplink MAX BR1 Mini 5G"
     assert device["product_code"] == "MAX-BR1-MINI-5GN-T-PRM"
-    assert device["firmware_version"] == "8.5.2s150 build 5332"
+    assert "firmware_version" not in device  # documented info.firmware owns it
     assert device["serial_number"]  # redacted placeholder, but present
     # Fanless model: no fans reported.
     assert info["fan_speeds"].get("fans", []) == []
@@ -141,17 +141,6 @@ async def test_traffic_stats(api: PeplinkAPI) -> None:
 
     assert stats, "expected per-WAN traffic stats"
     assert {str(s["wan_id"]) for s in stats} <= {"1", "2", "3", "4", "5"}
-
-
-async def test_location(api: PeplinkAPI) -> None:
-    with aioresponses() as m:
-        mock_router(m, BR1_MINI)
-        await api.connect()
-        loc = await api.get_location()
-
-    assert loc["gps"] is True
-    assert loc["location"]["latitude"] == 40.0
-    assert loc["location"]["longitude"] == -75.0
 
 
 # ---------------------------------------------------------------------------
@@ -265,25 +254,23 @@ async def test_saved_wifi_from_wan_config(api: PeplinkAPI) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_location_prefers_documented_endpoint(api: PeplinkAPI) -> None:
+async def test_location_uses_documented_endpoint_only(api: PeplinkAPI) -> None:
     with aioresponses() as m:
         mock_router(m, BR1_MINI)
         m.get(f"{BASE}/api/info.location", payload=load(BR1_MINI, "info.location"))
         await api.connect()
         loc = await api.get_location()
         assert loc["gps"] is True
-        # documented call answered, so the web-UI endpoint was not used
-        cgi_calls = [k for k in m.requests if "cgi-bin" in str(k[1]) and "info.location" in str(k[1])]
-        assert cgi_calls == []
+        assert loc["location"]["latitude"] == 40.0
+        assert not [k for k in m.requests if "cgi-bin" in str(k[1])]
 
 
-async def test_location_falls_back_to_web_ui(api: PeplinkAPI) -> None:
+async def test_location_failure_means_no_gps(api: PeplinkAPI) -> None:
     with aioresponses() as m:
         mock_router(m, BR1_MINI)
         m.get(f"{BASE}/api/info.location", payload={"stat": "fail", "code": 404, "message": "Not found"})
         await api.connect()
-        loc = await api.get_location()
-        assert loc["gps"] is True and loc["location"]["latitude"] == 40.0
+        assert (await api.get_location())["gps"] is False
 
 
 async def test_firmware_version_from_info_firmware(api: PeplinkAPI) -> None:

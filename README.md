@@ -49,8 +49,8 @@ This custom integration allows you to monitor and track your Peplink router from
   - **Scan Networks** button, **Nearby Networks** sensor (count; list with signal, channel, security, saved)
   - **Saved Networks** sensor (count; list with security, auto-connect and priority; passwords are never shown)
   - **Network** select: networks in range and saved networks. Choosing one does not join it
-  - **Join** button (open and saved networks), **Forget** button, **Disconnect Wi-Fi** button
-  - **Join with Password** box: type the password and press Enter to join the chosen network. Write-only: it always reads empty, so the password is never stored as state
+  - **Password** box and **Join** button: choose a network, type its password if it needs one (Enter joins right away), or just press Join for open and saved networks. The box is write-only: it always reads empty and the password is kept in memory only
+  - **Forget** and **Disconnect Wi-Fi** buttons
   - **Last Join Result** sensor: Connected / Wrong password / Network not found / Timed out
   - **Configure → Join Wi-Fi network**: a form with the scanned and saved networks (or type a name) and a password box; nothing is stored in Home Assistant
   - Actions `peplink_local.join_wifi` (with password, for new networks) and `peplink_local.forget_wifi`, targeting the Network select

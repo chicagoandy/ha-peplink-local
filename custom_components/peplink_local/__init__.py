@@ -198,6 +198,8 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.wifi_networks: dict[str, list[dict[str, Any]]] = {}  # wan_id -> scan
         self.wifi_scanned_at: dict[str, Any] = {}
         self.wifi_selected: dict[str, str] = {}  # wan_id -> chosen SSID
+        # wan_id -> (password, monotonic time); memory only, never state
+        self.wifi_pending_password: dict[str, tuple[str, float]] = {}
         self.wifi_results: dict[str, dict[str, Any]] = {}  # wan_id -> last result
         self._wifi_watch: dict[str, float] = {}  # wan_id -> monotonic deadline
         self.wifi_saved: dict[str, list[dict[str, Any]]] = {}  # wan_id -> profiles

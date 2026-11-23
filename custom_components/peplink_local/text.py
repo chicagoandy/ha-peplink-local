@@ -10,10 +10,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import wan_data, wifi
+from . import wan_data
 from .const import DOMAIN
 from .devices import wan_device_info
-from .entity_base import PeplinkControlEntity
+import time
+
+from .entity_base import PeplinkControlEntity, async_join_chosen_network
 
 
 async def async_setup_entry(
@@ -28,15 +30,16 @@ async def async_setup_entry(
 
 
 class PeplinkWifiPasswordText(PeplinkControlEntity, TextEntity):
-    """Type a password and press Enter to join the network chosen in Network.
+    """Password for the network chosen in Network.
 
-    Write-only: the entity's value is always empty, so the password is never
-    stored as entity state or in the recorder. It is sent to the router, which
-    saves it in the network's profile for this WAN.
+    Press Enter to join right away, or press Join (within 5 minutes). The
+    entity is write-only: its value always reads empty and the password is
+    kept in memory only, so it never becomes entity state or a recorder row.
+    The router saves it in the network's profile for this WAN.
     """
 
-    _attr_name = "Join with Password"
-    _attr_icon = "mdi:wifi-lock-open"
+    _attr_name = "Password"
+    _attr_icon = "mdi:form-textbox-password"
     _attr_mode = TextMode.PASSWORD
     _attr_native_min = 0
     _attr_native_max = 63  # WPA passphrase limit
@@ -44,28 +47,18 @@ class PeplinkWifiPasswordText(PeplinkControlEntity, TextEntity):
     _requires_enabled_wan = True
 
     def __init__(self, coordinator: Any, conn: dict[str, Any]) -> None:
+        # unique_id kept from 0.4.0-beta14 ("Join with Password")
         super().__init__(coordinator, str(conn.get("id")), "wifi_join_password")
         self._attr_device_info = wan_device_info(coordinator, conn)
 
     async def async_set_value(self, value: str) -> None:
-        wan_id = self._wan_id
-        if not value:
-            return
-        ssid = self.coordinator.wifi_selected.get(wan_id)
-        if not ssid:
-            raise HomeAssistantError("Pick a network in the Network list first")
-        net = wifi.find(self.coordinator.wifi_networks.get(wan_id, []), ssid)
-
-        async def join() -> None:
-            await self.coordinator.api.wifi_connect(
-                wan_id, ssid, value, net.get("security") if net else None
-            )
-            self.coordinator.watch_wifi_result(wan_id)
-            await self.coordinator.async_refresh_wifi_saved()
-
         try:
-            await self._run(join, f"join '{ssid}' on WAN {wan_id}")
+            if not value:
+                self.coordinator.wifi_pending_password.pop(self._wan_id, None)
+                return
+            self.coordinator.wifi_pending_password[self._wan_id] = (value, time.monotonic())
+            if self.coordinator.wifi_selected.get(self._wan_id):
+                await async_join_chosen_network(self, value)
         finally:
-            # Never keep the password as state.
             self._attr_native_value = ""
             self.async_write_ha_state()

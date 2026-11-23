@@ -31,10 +31,13 @@ from .const import (
     DOMAIN,
     EVENT_NEW_CLIENT,
     CONF_POLL_FREQUENCY,
+    CONF_CLIENT_ID,
+    CONF_CLIENT_SECRET,
+    API_CLIENT_NAME,
     DEFAULT_POLL_FREQUENCY,
     SCAN_INTERVAL,
 )
-from .peplink_api import PeplinkAPI, PeplinkAuthFailed
+from .peplink_api import PeplinkAPI, PeplinkAuthFailed, PeplinkCommandError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,8 +62,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Peplink Router from a config entry."""
     host = entry.data[CONF_HOST]
-    username = entry.data[CONF_USERNAME]
-    password = entry.data[CONF_PASSWORD]
     # Options (set via the options flow) override the values entered at setup.
     settings = {**entry.data, **entry.options}
     verify_ssl = settings.get(CONF_VERIFY_SSL, True)
@@ -68,17 +69,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     session = async_get_clientsession(hass, verify_ssl=verify_ssl)
 
-    api = PeplinkAPI(
-        host=host,
-        username=username,
-        password=password,
-        session=session,
-        verify_ssl=verify_ssl,
-    )
-
     try:
+        # Entries made before 1.0.0-beta7 stored the admin login: swap it for
+        # an API client on the router, then delete the stored password.
+        if not entry.data.get(CONF_CLIENT_ID) and entry.data.get(CONF_PASSWORD):
+            await _async_replace_admin_login(hass, entry, session, verify_ssl)
+
+        api = PeplinkAPI(
+            host=host,
+            session=session,
+            verify_ssl=verify_ssl,
+            client_id=entry.data.get(CONF_CLIENT_ID),
+            client_secret=entry.data.get(CONF_CLIENT_SECRET),
+        )
+        if not api.uses_token:
+            raise ConfigEntryAuthFailed("No API client stored; sign in again")
+
         if not await api.connect():
-            raise ConfigEntryAuthFailed("Failed to connect to Peplink router")
+            raise ConfigEntryNotReady(f"Router at {host} is not reachable")
 
         coordinator = PeplinkDataUpdateCoordinator(
             hass=hass,
@@ -130,11 +138,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         return True
 
-    except PeplinkAuthFailed as err:
-        raise ConfigEntryAuthFailed from err
+    except (PeplinkAuthFailed, ConfigEntryAuthFailed) as err:
+        raise ConfigEntryAuthFailed(str(err)) from err
+    except ConfigEntryNotReady:
+        raise
     except Exception as err:
         _LOGGER.exception("Error setting up Peplink integration")
         raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
+
+
+async def _async_replace_admin_login(
+    hass: HomeAssistant, entry: ConfigEntry, session, verify_ssl: bool
+) -> None:
+    """Create an API client with the stored admin login, then forget the login."""
+    admin = PeplinkAPI(
+        host=entry.data[CONF_HOST],
+        username=entry.data.get(CONF_USERNAME),
+        password=entry.data.get(CONF_PASSWORD),
+        session=session,
+        verify_ssl=verify_ssl,
+    )
+    if not await admin.connect():
+        raise ConfigEntryNotReady("Router not reachable to create its API client")
+    try:
+        client_id, client_secret = await admin.create_api_client(API_CLIENT_NAME)
+    except PeplinkCommandError as err:
+        raise ConfigEntryAuthFailed(f"Could not create an API client: {err}") from err
+    finally:
+        await admin.logout()
+    data = {
+        k: v for k, v in entry.data.items() if k not in (CONF_USERNAME, CONF_PASSWORD)
+    }
+    data.update({CONF_CLIENT_ID: client_id, CONF_CLIENT_SECRET: client_secret})
+    hass.config_entries.async_update_entry(entry, data=data)
+    _LOGGER.info(
+        "Peplink %s: created API client '%s'; the admin password is no longer stored",
+        entry.data[CONF_HOST], API_CLIENT_NAME,
+    )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -360,6 +400,8 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             wan_status, clients, system_info, traffic_stats, location_info = results
 
             for name, result in (("WAN status", wan_status), ("client information", clients)):
+                if isinstance(result, PeplinkAuthFailed):
+                    raise result
                 if isinstance(result, Exception):
                     raise UpdateFailed(f"Failed to get {name}: {result}") from result
             if not wan_status:
@@ -428,6 +470,12 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "location_info": location_info
             }
                 
+        except PeplinkAuthFailed as err:
+            # API client removed on the router (or its secret changed): ask
+            # the user to sign in again (reauth flow).
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except UpdateFailed:
+            raise
         except Exception as e:
             _LOGGER.exception("Failed to update data: %s", e)
             raise UpdateFailed(f"Failed to update data: {e}") from e

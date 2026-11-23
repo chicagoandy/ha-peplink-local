@@ -8,6 +8,9 @@ CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_VERIFY_SSL = "verify_ssl"
 CONF_POLL_FREQUENCY = "poll_frequency"
+CONF_CLIENT_ID = "client_id"
+CONF_CLIENT_SECRET = "client_secret"
+API_CLIENT_NAME = "Home Assistant"  # name of the API client created on the router
 
 # Defaults
 DEFAULT_PORT = 443

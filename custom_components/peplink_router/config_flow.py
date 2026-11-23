@@ -22,10 +22,18 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .const import DOMAIN, CONF_POLL_FREQUENCY, CONF_TRACKED_CLIENTS, DEFAULT_POLL_FREQUENCY
+from .const import (
+    DOMAIN,
+    API_CLIENT_NAME,
+    CONF_CLIENT_ID,
+    CONF_CLIENT_SECRET,
+    CONF_POLL_FREQUENCY,
+    CONF_TRACKED_CLIENTS,
+    DEFAULT_POLL_FREQUENCY,
+)
 from . import clients as client_util
 from . import wan_data, wifi as wifi_util
-from .peplink_api import PeplinkAPI, PeplinkAuthFailed, PeplinkSSLError
+from .peplink_api import PeplinkAPI, PeplinkAuthFailed, PeplinkCommandError, PeplinkSSLError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,49 +51,55 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
-    """Validate the user input allows us to connect."""
-    host = data[CONF_HOST]
-    username = data[CONF_USERNAME]
-    password = data[CONF_PASSWORD]
-    verify_ssl = data.get(CONF_VERIFY_SSL, True)
+    """Sign in with the admin login once and create an API client.
 
-    # Get the session with appropriate SSL settings
+    The admin login is only used here: Home Assistant stores the new API
+    client's ID and secret, never the admin password. Returns the entry
+    title and the data to store.
+    """
+    host = data[CONF_HOST]
+    verify_ssl = data.get(CONF_VERIFY_SSL, True)
     session = async_get_clientsession(hass, verify_ssl=verify_ssl)
 
+    admin = PeplinkAPI(
+        host=host,
+        username=data[CONF_USERNAME],
+        password=data[CONF_PASSWORD],
+        session=session,
+        verify_ssl=verify_ssl,
+    )
+    if not await admin.connect():
+        raise PeplinkAuthFailed
     try:
-        # Test the connection
-        client = PeplinkAPI(
-            host=host,
-            username=username,
-            password=password,
-            session=session,
-            verify_ssl=verify_ssl
-        )
+        client_id, client_secret = await admin.create_api_client(API_CLIENT_NAME)
+    except PeplinkCommandError as err:
+        raise ApiClientError from err
+    finally:
+        await admin.logout()
 
-        if not await client.connect():
-            raise PeplinkAuthFailed
-            
-        # Attempt to get the device name
-        device_info = await client.get_device_info()
-        device_name = None
-        if device_info and "device_info" in device_info:
-            device_name = device_info["device_info"].get("name")
-            
-    except PeplinkAuthFailed as err:
-        raise PeplinkAuthFailed from err
-    except PeplinkSSLError as err:
-        # Catch and re-raise SSL errors separately
-        raise PeplinkSSLError from err
-    except Exception as e:
-        _LOGGER.exception("Unexpected exception: %s", e)
-        raise
+    # Check the new client works, and read the router's name with it.
+    api = PeplinkAPI(
+        host=host, session=session, verify_ssl=verify_ssl,
+        client_id=client_id, client_secret=client_secret,
+    )
+    if not await api.connect():
+        raise PeplinkAuthFailed
+    device_name = None
+    try:
+        device_name = ((await api.get_device_info()) or {}).get("device_info", {}).get("name")
+    except Exception as err:  # noqa: BLE001 - the name is only a nicety
+        _LOGGER.debug("Could not read the router name: %s", err)
 
-    # Return info to be stored in the config entry
-    # Use the device name if available, otherwise use the IP address
-    if device_name:
-        return {"title": device_name}
-    else:
-        return {"title": f"Peplink Router ({data[CONF_HOST]})"}
+    stored = {k: v for k, v in data.items() if k not in (CONF_USERNAME, CONF_PASSWORD)}
+    stored.update({CONF_CLIENT_ID: client_id, CONF_CLIENT_SECRET: client_secret})
+    return {
+        "title": device_name or f"Peplink Router ({host})",
+        "data": stored,
+    }
+
+
+class ApiClientError(Exception):
+    """The router would not create an API client (e.g. not an admin account)."""
 
 
 class PeplinkLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -106,7 +120,9 @@ class PeplinkLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema = vol.Schema({
             vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): str,
             vol.Required(CONF_USERNAME, default=defaults.get(CONF_USERNAME, "")): str,
-            vol.Required(CONF_PASSWORD, default=defaults.get(CONF_PASSWORD, "")): str,
+            vol.Required(CONF_PASSWORD): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
             vol.Optional(CONF_VERIFY_SSL, default=defaults.get(CONF_VERIFY_SSL, False)): bool,
             vol.Optional(CONF_POLL_FREQUENCY, default=defaults.get(CONF_POLL_FREQUENCY, DEFAULT_POLL_FREQUENCY)): vol.All(
                 vol.Coerce(int), vol.Range(min=1, max=300)
@@ -118,16 +134,71 @@ class PeplinkLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await validate_input(self.hass, user_input)
             except PeplinkAuthFailed:
                 errors["base"] = "invalid_auth"
+            except ApiClientError:
+                errors["base"] = "api_client_failed"
             except PeplinkSSLError:
                 errors["base"] = "ssl_error"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(title=info["title"], data=user_input)
+                return self.async_create_entry(title=info["title"], data=info["data"])
 
         return self.async_show_form(
             step_id="user", data_schema=schema, errors=errors
+        )
+
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+        """The router rejected the API client (removed, or secret changed)."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Ask for the admin login once to create a new API client."""
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                info = await validate_input(
+                    self.hass,
+                    {
+                        CONF_HOST: entry.data[CONF_HOST],
+                        CONF_VERIFY_SSL: {**entry.data, **entry.options}.get(CONF_VERIFY_SSL, True),
+                        **user_input,
+                    },
+                )
+            except PeplinkAuthFailed:
+                errors["base"] = "invalid_auth"
+            except ApiClientError:
+                errors["base"] = "api_client_failed"
+            except PeplinkSSLError:
+                errors["base"] = "ssl_error"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                data = {
+                    k: v for k, v in entry.data.items() if k not in (CONF_USERNAME, CONF_PASSWORD)
+                }
+                data[CONF_CLIENT_ID] = info["data"][CONF_CLIENT_ID]
+                data[CONF_CLIENT_SECRET] = info["data"][CONF_CLIENT_SECRET]
+                self.hass.config_entries.async_update_entry(entry, data=data)
+                await self.hass.config_entries.async_reload(entry.entry_id)
+                return self.async_abort(reason="reauth_successful")
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME, default="admin"): str,
+                    vol.Required(CONF_PASSWORD): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
+                }
+            ),
+            description_placeholders={"host": entry.data[CONF_HOST]},
+            errors=errors,
         )
 
     @staticmethod

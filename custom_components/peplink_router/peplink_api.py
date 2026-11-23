@@ -12,7 +12,7 @@ import json
 import ssl
 import asyncio
 from typing import Any, Dict, List, Optional
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 from functools import partial
 import time
 
@@ -51,21 +51,115 @@ class PeplinkAPI:
     def __init__(
         self,
         host: str,
-        username: str,
-        password: str,
+        username: str | None = None,
+        password: str | None = None,
         session: Optional[aiohttp.ClientSession] = None,
         verify_ssl: bool = True,
+        client_id: str | None = None,
+        client_secret: str | None = None,
     ):
-        """Initialize the Peplink API client."""
+        """Initialize the Peplink API client.
+
+        Two ways to sign in:
+        - API client (client_id + client_secret): the normal mode. Access
+          tokens are requested with auth.token.grant, kept in memory and
+          renewed before they expire. No admin password is needed.
+        - Admin login (username + password): used only during setup or
+          re-authentication, to create the API client.
+        """
         self.host = host  # Store the host for reference
         self.base_url = f"https://{host}"
         self.username = username
         self.password = password
+        self.client_id = client_id
+        self.client_secret = client_secret
         self._session = session
         self._verify_ssl = verify_ssl
         self._own_session = False
         self._connected = False
         self._auth_cookie = None
+        self._access_token: str | None = None
+        self._token_expires_at = 0.0  # time.monotonic()
+        self._auth_lock = asyncio.Lock()  # one sign-in at a time
+
+    @property
+    def uses_token(self) -> bool:
+        """True when signing in with an API client instead of the admin login."""
+        return bool(self.client_id and self.client_secret)
+
+    def _redact(self, text: Any) -> str:
+        """Hide the access token in anything that may be logged."""
+        text = str(text)
+        if self._access_token:
+            text = text.replace(self._access_token, "***")
+        return text
+
+    def _with_auth(self, url: str) -> tuple[str, dict[str, str]]:
+        """Add the access token (query parameter) or session cookie to a request."""
+        if self.uses_token and self._access_token:
+            sep = "&" if "?" in url else "?"
+            return f"{url}{sep}accessToken={quote(self._access_token, safe='')}", {}
+        if self._auth_cookie:
+            return url, {"Cookie": f"bauth={self._auth_cookie}"}
+        return url, {}
+
+    async def _grant_token(self) -> bool:
+        """Get an access token for the API client (auth.token.grant).
+
+        Raises PeplinkAuthFailed if the router rejects the client (removed on
+        the router, or wrong secret); returns False if it can't be reached.
+        """
+        session = await self._get_session()
+        url = urljoin(self.base_url, "/api/auth.token.grant")
+        body = {"clientId": self.client_id, "clientSecret": self.client_secret, "scope": "api"}
+        try:
+            async with session.post(url, json=body) as response:
+                data = await response.json(content_type=None)
+        except aiohttp.ClientConnectorCertificateError as err:
+            raise PeplinkSSLError(f"SSL Certificate validation failed: {err}") from err
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            _LOGGER.error("Could not reach the router for an access token: %s", err)
+            self._connected = False
+            return False
+        result = data.get("response") if isinstance(data, dict) else None
+        if not (isinstance(data, dict) and data.get("stat") == "ok" and isinstance(result, dict)
+                and result.get("accessToken")):
+            self._connected = False
+            message = data.get("message") if isinstance(data, dict) else data
+            raise PeplinkAuthFailed(f"The router rejected the API client: {message}")
+        self._access_token = result["accessToken"]
+        try:
+            lifetime = int(result["expiresIn"]) if result.get("expiresIn") is not None else 172800
+        except (TypeError, ValueError):
+            lifetime = 172800
+        # Renew 10 minutes early (or halfway, for very short lifetimes).
+        self._token_expires_at = time.monotonic() + max(lifetime - 600, lifetime / 2)
+        self._connected = True
+        _LOGGER.debug("Got an access token valid for %s s", lifetime)
+        return True
+
+    async def create_api_client(self, name: str = "Home Assistant") -> tuple[str, str]:
+        """Create a read-write API client on the router (needs the admin login).
+
+        Returns (client_id, client_secret).
+        """
+        response = await self._post("auth.client", {"action": "add", "name": name, "scope": "api"})
+        result = response.get("response") or {}
+        client_id, client_secret = result.get("clientId"), result.get("clientSecret")
+        if not client_id or not client_secret:
+            raise PeplinkCommandError("auth.client returned no client ID or secret")
+        return client_id, client_secret
+
+    async def logout(self) -> None:
+        """End an admin login session (best effort)."""
+        if self.uses_token or not self._auth_cookie:
+            return
+        try:
+            await self._make_api_request("logout", public_api=True, method="POST", data={})
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Logout failed: %s", err)
+        self._auth_cookie = None
+        self._connected = False
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create a session with the appropriate SSL settings."""
@@ -90,7 +184,10 @@ class PeplinkAPI:
         """Connect to the Peplink router and authenticate."""
         if self._connected:
             return True
-        
+
+        if self.uses_token:
+            return await self._grant_token()
+
         # Create or get a session object
         session = await self._get_session()
         
@@ -188,7 +285,9 @@ class PeplinkAPI:
             self._connected = False
             return False
 
-    async def ensure_connected(self, force_reconnect: bool = False) -> bool:
+    async def ensure_connected(
+        self, force_reconnect: bool = False, failed_token: str | None = None
+    ) -> bool:
         """Ensure that a connection has been established.
         
         Args:
@@ -197,81 +296,57 @@ class PeplinkAPI:
         Returns:
             bool: True if successfully connected, False otherwise
         """
-        if not self._connected or force_reconnect:
-            self._connected = False  # Reset connected state if forcing reconnect
-            return await self.connect()
-        return True
+        async with self._auth_lock:
+            if self.uses_token and time.monotonic() >= self._token_expires_at:
+                force_reconnect = True
+            elif failed_token and self._access_token != failed_token:
+                # Another request already signed in again while we waited.
+                return True
+            if not self._connected or force_reconnect:
+                self._connected = False  # Reset connected state if forcing reconnect
+                return await self.connect()
+            return True
     
     async def _api_request(self, endpoint: str, method: str = "GET", data: Optional[Dict] = None) -> Dict:
         """Make an API request to the Peplink router."""
-        if not self._connected:
-            # Try to connect first
-            _LOGGER.debug("Not connected, attempting to connect first")
-            if not await self.connect():
-                raise Exception("Not connected to Peplink router")
+        if not await self.ensure_connected():
+            raise Exception("Not connected to Peplink router")
         
         session = await self._get_session()
-        url = urljoin(self.base_url, endpoint)
-        
-        headers = {}
-        # Manually add cookie to request if available
-        if self._auth_cookie:
-            headers["Cookie"] = f"bauth={self._auth_cookie}"
-            _LOGGER.debug("Adding auth cookie to request")
-        
-        try:
+        base = urljoin(self.base_url, endpoint)
+
+        async def _send() -> tuple[int, Any]:
+            nonlocal used_token
+            used_token = self._access_token
+            url, headers = self._with_auth(base)
             async with session.request(method, url, json=data, headers=headers) as response:
-                # Check for authentication error
                 if response.status == 401:
-                    _LOGGER.error("API error: Unauthorized (code: 401)")
-                    # Try to reconnect with force flag and retry the request
-                    if await self.ensure_connected(force_reconnect=True):
-                        _LOGGER.debug("Successfully reconnected, retrying request")
-                        headers = {}
-                        if self._auth_cookie:
-                            headers["Cookie"] = f"bauth={self._auth_cookie}"
-                        async with session.request(method, url, json=data, headers=headers) as retry_response:
-                            if retry_response.status == 401:
-                                _LOGGER.error("Still unauthorized after reconnect attempt")
-                                raise Exception("Unauthorized (code: 401)")
-                            retry_response.raise_for_status()
-                            response_data = await retry_response.json()
-                            if response_data.get("stat") == "fail" and response_data.get("code") == 401:
-                                _LOGGER.error("Authentication failed with API error 401 after reconnect")
-                                raise Exception("Unauthorized API response (code: 401)")
-                            return response_data
-                    else:
-                        raise Exception("Failed to reconnect, unauthorized (code: 401)")
-                
-                # Raise other HTTP errors
+                    return 401, None
                 response.raise_for_status()
-                
-                # Check for API-level auth errors in response
-                response_data = await response.json()
-                if response_data.get("stat") == "fail" and response_data.get("code") == 401:
-                    _LOGGER.error("Authentication failed with API error 401")
-                    # Try to reconnect with force flag and retry
-                    if await self.ensure_connected(force_reconnect=True):
-                        _LOGGER.debug("Successfully reconnected after API 401, retrying request")
-                        headers = {}
-                        if self._auth_cookie:
-                            headers["Cookie"] = f"bauth={self._auth_cookie}"
-                        async with session.request(method, url, json=data, headers=headers) as retry_response:
-                            retry_response.raise_for_status()
-                            retry_data = await retry_response.json()
-                            if retry_data.get("stat") == "fail" and retry_data.get("code") == 401:
-                                _LOGGER.error("Still getting API-level 401 after reconnect")
-                                raise Exception("Unauthorized API response after reconnect (code: 401)")
-                            return retry_data
-                    else:
-                        raise Exception("Failed to reconnect for API-level 401 error")
-                
-                # Return parsed JSON response
-                return response_data
-                
+                return response.status, await response.json(content_type=None)
+
+        used_token: str | None = None
+
+        def _unauthorized(result: tuple[int, Any]) -> bool:
+            status, body = result
+            return status == 401 or (
+                isinstance(body, dict) and body.get("stat") == "fail" and body.get("code") == 401
+            )
+
+        try:
+            result = await _send()
+            if _unauthorized(result):
+                # Session or token expired: sign in again and retry once.
+                _LOGGER.debug("Router answered 401; signing in again")
+                if not await self.ensure_connected(force_reconnect=True, failed_token=used_token):
+                    raise Exception("Failed to reconnect, unauthorized (code: 401)")
+                result = await _send()
+                if _unauthorized(result):
+                    raise Exception("Unauthorized (code: 401) after signing in again")
+            return result[1]
         except aiohttp.ClientError as e:
-            _LOGGER.error("API request error: %s", e)
-            raise Exception(f"API request error: {e}")
+            _LOGGER.error("API request error: %s", self._redact(e))
+            raise Exception(f"API request error: {self._redact(e)}") from None
 
     async def _format_api_url(self, func: str, public_api: bool = False, **kwargs) -> str:
         """Format an API URL based on the function pattern and additional parameters.

@@ -969,6 +969,14 @@ class PeplinkAPI:
         """Rescan for carriers (cmd.cellularModule.rescanNetwork, fw 8.0.0+)."""
         await self._post("cmd.cellularModule.rescanNetwork", {"connId": int(conn_id)})
 
+    async def get_cellular_module_temperature(self, conn_id: int | str) -> float | None:
+        """Cellular modem temperature in °C (status.cellularModule.temperature, fw 8.4.1+)."""
+        response = await self._post("status.cellularModule.temperature", {"connId": int(conn_id)})
+        value = (response.get("response") or {}).get("temperature")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        return float(value)
+
     async def reboot(self) -> None:
         """Reboot the router (cmd.system.reboot, fw 8.2.0+)."""
         await self._post("cmd.system.reboot")

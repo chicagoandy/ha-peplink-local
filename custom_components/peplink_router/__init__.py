@@ -25,6 +25,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import clients as client_util
+from . import wan_data
 from . import wifi as wifi_util
 from .const import (
     DOMAIN,
@@ -188,6 +189,8 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._optional_failing: set[str] = set()
         self._firmware_at: float | None = None
         self._documented_firmware: str | None = None
+        self._modem_temps: dict[str, float] = {}
+        self._modem_temps_at: float | None = None
         # MACs seen before, persisted so restarts don't re-announce them.
         self._client_store: Store = Store(
             hass, 1, f"{DOMAIN}.{config_entry.entry_id}.known_clients"
@@ -291,6 +294,36 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.info("Peplink %s available again", name)
         return result
 
+    async def _async_add_modem_temperatures(self, wan_status: dict[str, Any]) -> dict[str, Any]:
+        """Add each cellular WAN's modem temperature (documented, fw 8.4.1+).
+
+        Read once a minute; temperature changes slowly. A WAN whose read fails
+        (modem off, older firmware) just has no value.
+        """
+        connections = wan_status.get("connection", [])
+        if self._modem_temps_at is None or time.monotonic() - self._modem_temps_at > 60:
+            self._modem_temps_at = time.monotonic()
+            temps: dict[str, float] = {}
+            for conn in connections:
+                if not wan_data.is_cellular(conn) or not conn.get("enable", True):
+                    continue
+                try:
+                    value = await self.api.get_cellular_module_temperature(conn["id"])
+                except Exception as err:
+                    _LOGGER.debug("Modem temperature for WAN %s unavailable: %s", conn.get("id"), err)
+                    continue
+                if value is not None:
+                    temps[str(conn["id"])] = value
+            self._modem_temps = temps
+        return {
+            **wan_status,
+            "connection": [
+                {**conn, "modemTemperature": self._modem_temps[str(conn.get("id"))]}
+                if str(conn.get("id")) in self._modem_temps else conn
+                for conn in connections
+            ],
+        }
+
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via API."""
         try:
@@ -354,21 +387,21 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             # Update model and firmware information if available
             device_info_data = device_info.get("device_info", {})
-            if device_info_data:
-                if device_info_data.get("model"):
-                    self.model = device_info_data.get("model")
+            for key, attr in (
+                ("model", "model"),
+                ("name", "device_name"),
+                ("serial_number", "serial_number"),
+                ("product_code", "product_code"),
+                ("hardware_revision", "hardware_revision"),
+            ):
+                if device_info_data.get(key):
+                    setattr(self, attr, device_info_data[key])
             if self._documented_firmware:
                 self.firmware = self._documented_firmware
                 device_info_data = {**device_info_data, "firmware_version": self._documented_firmware}
-                if device_info_data.get("name"):
-                    self.device_name = device_info_data.get("name")
-                if device_info_data.get("serial_number"):
-                    self.serial_number = device_info_data.get("serial_number") 
-                if device_info_data.get("product_code"):
-                    self.product_code = device_info_data.get("product_code")
-                if device_info_data.get("hardware_revision"):
-                    self.hardware_revision = device_info_data.get("hardware_revision")
-                
+
+            wan_status = await self._async_add_modem_temperatures(wan_status)
+
             # Combine all data into a single data structure
             return {
                 "wan_status": wan_status,

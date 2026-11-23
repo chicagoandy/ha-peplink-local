@@ -428,6 +428,17 @@ WAN_STATUS_SENSOR_TYPES: tuple[PeplinkSensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     PeplinkSensorEntityDescription(
+        key="cellular_modem_temperature",
+        name="Modem Temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda c: c.get("modemTemperature"),
+        wan_filter=wan_data.is_cellular,
+        require_value=True,
+        icon="mdi:thermometer",
+    ),
+    PeplinkSensorEntityDescription(
         key="cellular_roaming",
         name="Roaming",
         value_fn=wan_data.roaming,

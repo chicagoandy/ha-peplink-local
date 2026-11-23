@@ -64,10 +64,6 @@ Monitor and control a Peplink / Pepwave router from Home Assistant over its loca
 
 ## Installation
 
-### Moving from Peplink Local
-
-Peplink Router is a separate integration. Remove Peplink Local first (Settings → Devices & services → Peplink Local → Delete, then remove it in HACS), restart, then install Peplink Router below. Entity IDs come from the router and WAN names, so with Peplink Local's entities gone they come back the same.
-
 ### HACS Installation (Recommended)
 
 1. Ensure [HACS](https://hacs.xyz/) is installed in your Home Assistant instance

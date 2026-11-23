@@ -20,3 +20,9 @@ ATTR_WAN_ID = "wan_id"
 ATTR_CLIENT_NAME = "client_name"
 ATTR_CLIENT_MAC = "mac_address"
 ATTR_CLIENT_IP = "ip_address"
+
+# Options
+CONF_TRACKED_CLIENTS = "tracked_clients"  # MAC addresses with a device tracker
+
+# Events
+EVENT_NEW_CLIENT = f"{DOMAIN}_new_client"  # a MAC never seen before connected

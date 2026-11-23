@@ -11,8 +11,10 @@ from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_VE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+import homeassistant.helpers.config_validation as cv
 
-from .const import DOMAIN, CONF_POLL_FREQUENCY, DEFAULT_POLL_FREQUENCY
+from .const import DOMAIN, CONF_POLL_FREQUENCY, CONF_TRACKED_CLIENTS, DEFAULT_POLL_FREQUENCY
+from . import clients as client_util
 from .peplink_api import PeplinkAPI, PeplinkAuthFailed, PeplinkSSLError
 
 _LOGGER = logging.getLogger(__name__)
@@ -141,6 +143,20 @@ class PeplinkLocalOptionsFlowHandler(config_entries.OptionsFlow):
 
         # Fill the form with current values (options override setup data)
         current = {**self.entry.data, **self.entry.options}
+        tracked = [client_util.norm_mac(m) for m in current.get(CONF_TRACKED_CLIENTS, [])]
+
+        # Clients the router knows now, plus any tracked ones that are offline.
+        choices: dict[str, str] = {}
+        coordinator = (
+            self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("coordinator")
+        )
+        router_clients = ((coordinator.data or {}).get("clients") or {}).get("client", []) if coordinator else []
+        for client in sorted(router_clients, key=lambda c: (client_util.client_name(c) or "~").lower()):
+            if client_util.is_mac(client.get("mac")):
+                choices[client_util.norm_mac(client["mac"])] = client_util.label(client)
+        for mac in tracked:
+            choices.setdefault(mac, f"{mac} (not connected)")
+
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
@@ -153,6 +169,10 @@ class PeplinkLocalOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_POLL_FREQUENCY,
                         default=current.get(CONF_POLL_FREQUENCY, DEFAULT_POLL_FREQUENCY),
                     ): vol.All(vol.Coerce(int), vol.Range(min=1, max=300)),
+                    vol.Optional(
+                        CONF_TRACKED_CLIENTS,
+                        default=tracked,
+                    ): cv.multi_select(choices),
                 }
             ),
         )

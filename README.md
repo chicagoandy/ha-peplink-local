@@ -31,7 +31,9 @@ This custom integration allows you to monitor and track your Peplink router from
   - Speed Sensor (meters per second)
   - Altitude Sensor (meters)
   - Heading Sensor (degrees)
-- **Device Tracking**: Tracks client devices connected to your Peplink router
+- **Connected Clients**: one sensor with the number of active clients and the full list (name, IP, MAC, connection type, SSID, signal) as its `clients` attribute
+- **Client Tracking (opt-in)**: pick clients under **Configure → Clients to track** to get a device tracker for each, e.g. phones for presence or devices with no integration of their own
+- **New Client Event**: `peplink_local_new_client` fires when a device that has never been seen before joins the network (event data: `mac`, `name`, `ip`, `connection_type`, `ssid`), handy for "unknown device" alerts
 - **Traffic Statistics**:
   - WAN Download (data rate sensor)
   - WAN Upload (data rate sensor)

@@ -26,9 +26,11 @@
     "step": {
       "init": {
         "title": "Peplink Options",
-        "description": "Configure options for the Peplink integration",
+        "description": "Configure options for the Peplink integration. Pick the clients you want a device tracker for (for example phones for presence, or devices with no integration of their own). All connected clients are always listed in the Connected Clients sensor.",
         "data": {
-          "verify_ssl": "Verify SSL certificate"
+          "verify_ssl": "Verify SSL certificate",
+          "poll_frequency": "Polling frequency (seconds)",
+          "tracked_clients": "Clients to track"
         }
       }
     }

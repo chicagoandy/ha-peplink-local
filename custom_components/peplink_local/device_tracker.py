@@ -7,13 +7,16 @@ from homeassistant.components.device_tracker import ScannerEntity, TrackerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
 )
 
+from . import clients as client_util
 from .const import (
+    CONF_TRACKED_CLIENTS,
     DOMAIN,
     ATTR_CLIENT_NAME,
     ATTR_CLIENT_MAC,
@@ -56,47 +59,71 @@ async def async_setup_entry(
     else:
         _LOGGER.debug("Router does not have GPS capability - skipping GPS tracker")
     
-    # One tracker per client MAC. New clients that show up later are added on
-    # the next coordinator update, not only the ones present at startup.
-    known_macs: set[str] = set()
+    # Client trackers only for the MACs chosen in the integration options
+    # (Configure -> Clients to track). Every connected client is listed in the
+    # Connected Clients sensor regardless.
+    tracked = {
+        client_util.norm_mac(m) for m in entry.options.get(CONF_TRACKED_CLIENTS, [])
+    }
     device_registry = dr.async_get(hass)
+    _async_remove_untracked_clients(hass, entry, tracked)
 
-    def _new_client_trackers() -> list[PeplinkClientTracker]:
-        new_entities: list[PeplinkClientTracker] = []
-        clients = (coordinator.data or {}).get("clients", {}).get("client", [])
-        for client in clients:
-            mac = client.get("mac")
-            if not mac or mac == "unknown" or mac in known_macs:
-                continue
-            known_macs.add(mac)
-            # If another integration already has a device for this MAC
-            # (ESPHome, WLED, a phone app...), join it without renaming it.
-            existing = device_registry.async_get_device(
-                connections={(dr.CONNECTION_NETWORK_MAC, dr.format_mac(mac))}
-            )
-            new_entities.append(
-                PeplinkClientTracker(
-                    coordinator,
-                    entry.entry_id,
-                    client.get("name"),
-                    mac,
-                    name_device=existing is None,
-                )
-            )
-        return new_entities
+    def _client_by_mac() -> dict[str, dict]:
+        router_clients = (coordinator.data or {}).get("clients", {}).get("client", [])
+        return {
+            client_util.norm_mac(c["mac"]): c
+            for c in router_clients
+            if client_util.is_mac(c.get("mac"))
+        }
 
-    entities.extend(_new_client_trackers())
+    current = _client_by_mac()
+    for mac in sorted(tracked):
+        client = current.get(mac, {})
+        # If another integration already has a device for this MAC
+        # (ESPHome, WLED, a phone app...), join it without renaming it.
+        existing = device_registry.async_get_device(
+            connections={(dr.CONNECTION_NETWORK_MAC, dr.format_mac(mac))}
+        )
+        entities.append(
+            PeplinkClientTracker(
+                coordinator,
+                entry.entry_id,
+                client_util.client_name(client),
+                mac,
+                name_device=existing is None,
+            )
+        )
+
     if entities:
         _LOGGER.debug("Adding %d Peplink device trackers", len(entities))
         async_add_entities(entities)
 
-    @callback
-    def _async_add_new_clients() -> None:
-        if new_entities := _new_client_trackers():
-            _LOGGER.debug("Adding %d newly seen client trackers", len(new_entities))
-            async_add_entities(new_entities)
 
-    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_clients))
+@callback
+def _async_remove_untracked_clients(
+    hass: HomeAssistant, entry: ConfigEntry, tracked: set[str]
+) -> None:
+    """Drop client trackers (and our link to their devices) no longer selected."""
+    entity_registry = er.async_get(hass)
+    device_registry = dr.async_get(hass)
+    for entity_entry in er.async_entries_for_config_entry(entity_registry, entry.entry_id):
+        if entity_entry.domain != "device_tracker" or not client_util.is_mac(entity_entry.unique_id):
+            continue
+        if client_util.norm_mac(entity_entry.unique_id) in tracked:
+            continue
+        _LOGGER.debug("Removing untracked client tracker %s", entity_entry.entity_id)
+        entity_registry.async_remove(entity_entry.entity_id)
+        if not entity_entry.device_id:
+            continue
+        still_ours = [
+            e for e in er.async_entries_for_device(entity_registry, entity_entry.device_id)
+            if e.config_entry_id == entry.entry_id
+        ]
+        device = device_registry.async_get(entity_entry.device_id)
+        if device and not still_ours and entry.entry_id in device.config_entries:
+            device_registry.async_update_device(
+                device.id, remove_config_entry_id=entry.entry_id
+            )
 
 class PeplinkGPSTracker(CoordinatorEntity, TrackerEntity):
     """Representation of the Peplink router GPS location."""
@@ -195,13 +222,15 @@ class PeplinkClientTracker(CoordinatorEntity, ScannerEntity):
     no name of its own and takes its device's name. The device is keyed by
     the MAC address and named after the client name the router reports. If
     another integration already has a device with this MAC (ESPHome, WLED, a
-    phone...), the tracker joins that device and keeps its name. The MAC stays the hidden unique ID, as for every
-    router integration. Like other router trackers, new client trackers are
-    disabled by default (ScannerEntity's default); enable the ones you want.
+    phone...), the tracker joins that device and keeps its name. The MAC is
+    the hidden unique ID, as for every router integration. Trackers exist
+    only for the clients picked in the integration options.
     """
 
     _attr_has_entity_name = True
     _attr_name = None
+    # Only clients picked in the options get a tracker, so enable them.
+    _attr_entity_registry_enabled_default = True
 
     def __init__(
         self,
@@ -278,8 +307,8 @@ class PeplinkClientTracker(CoordinatorEntity, ScannerEntity):
             and "client" in self.coordinator.data["clients"]
         ):
             for client in self.coordinator.data["clients"]["client"]:
-                if client.get("mac") == self._client_mac:
-                    self._is_connected = client.get("connected", False)
+                if client_util.is_mac(client.get("mac")) and client_util.norm_mac(client["mac"]) == client_util.norm_mac(self._client_mac):
+                    self._is_connected = client_util.is_active(client)
                     self._ip_address = client.get("ip")
                     
                     # Add all client attributes

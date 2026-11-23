@@ -43,6 +43,7 @@ from homeassistant.config_entries import ConfigEntry
 from . import PeplinkDataUpdateCoordinator
 from .const import DOMAIN
 from . import wan_data
+from . import clients as client_util
 from .devices import wan_device_info
 
 _LOGGER = logging.getLogger(__name__)
@@ -511,6 +512,9 @@ async def async_setup_entry(
                 )
             )
 
+    # Connected clients: count of active clients, full list as an attribute.
+    entities.append(PeplinkConnectedClientsSensor(coordinator))
+
     # Per-WAN sensors: one sub-device per WAN reported by status.wan.connection
     # (disabled WANs included), traffic sensors where traffic stats exist.
     wan_connections = coordinator.data.get("wan_status", {}).get("connection", [])
@@ -833,6 +837,37 @@ class PeplinkWANSensor(CoordinatorEntity, SensorEntity):
             connection = self._connection() or self._initial_sensor_data
             return self.entity_description.attrs_fn(connection)
         return self._extra_attrs
+
+
+class PeplinkConnectedClientsSensor(CoordinatorEntity, SensorEntity):
+    """Number of active clients; the client list is in the 'clients' attribute.
+
+    The list is kept out of the recorder so it doesn't bloat the database.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Connected Clients"
+    _attr_icon = "mdi:devices"
+    _attr_native_unit_of_measurement = "clients"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _unrecorded_attributes = frozenset({"clients"})
+
+    def __init__(self, coordinator: PeplinkDataUpdateCoordinator) -> None:
+        super().__init__(coordinator)
+        entry_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"{entry_id}_connected_clients"
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, entry_id)})
+
+    def _clients(self) -> list[dict[str, Any]]:
+        return ((self.coordinator.data or {}).get("clients") or {}).get("client", [])
+
+    @property
+    def native_value(self) -> int:
+        return sum(1 for c in self._clients() if client_util.is_active(c))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"clients": client_util.active_summaries(self._clients())}
 
 
 def _translate_wan_type(wan_type: str) -> str | None:

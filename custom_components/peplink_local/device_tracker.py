@@ -101,7 +101,7 @@ class PeplinkGPSTracker(CoordinatorEntity, TrackerEntity):
         """Initialize the GPS tracker."""
         super().__init__(coordinator)
         self._config_entry_id = config_entry_id
-        self._attr_unique_id = f"{coordinator.host}_gps"
+        self._attr_unique_id = f"{config_entry_id}_gps"
         self._attr_name = "GPS Location"
         self._latitude = None
         self._longitude = None

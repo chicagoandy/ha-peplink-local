@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -14,10 +15,11 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
     Platform,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -104,6 +106,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             serial_number=coordinator.serial_number,
             sw_version=coordinator.firmware,
         )
+
+        await _async_migrate_unique_ids(hass, entry, coordinator)
 
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -235,3 +239,50 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as e:
             _LOGGER.exception("Failed to update data: %s", e)
             raise UpdateFailed(f"Failed to update data: {e}") from e
+
+
+_WAN_UNIQUE_ID = re.compile(r"^(?P<prefix>.+?)_wan(?P<wan>\d+)_(?P<key>.+)$")
+
+
+async def _async_migrate_unique_ids(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: PeplinkDataUpdateCoordinator,
+) -> None:
+    """Move entities from host/name-based unique IDs to entry-ID-based ones.
+
+    Up to 0.3.7 unique IDs started with the router's IP address (static and
+    binary sensors, GPS tracker) or its device name (WAN sensors), so changing
+    either orphaned every entity and created duplicates. They now start with
+    the config entry ID. Entity IDs, names and history are kept.
+    """
+    entry_id = entry.entry_id
+    host = entry.data[CONF_HOST]
+
+    @callback
+    def _migrate(entity_entry: er.RegistryEntry) -> dict[str, Any] | None:
+        old = entity_entry.unique_id
+        if old.startswith(f"{entry_id}_"):
+            return None  # already migrated
+
+        new: str | None = None
+        if entity_entry.domain == "binary_sensor":
+            suffix = f"_binary_{entry_id}"
+            if old.endswith(suffix) and (m := _WAN_UNIQUE_ID.match(old[: -len(suffix)])):
+                new = f"{entry_id}_wan{m['wan']}_{m['key']}_binary"
+        elif entity_entry.domain == "sensor":
+            # Only this entry's entities are visited, so any "<x>_wan<n>_<key>"
+            # is ours, even if the router was renamed since it was created.
+            if m := _WAN_UNIQUE_ID.match(old):
+                new = f"{entry_id}_wan{m['wan']}_{m['key']}"
+            elif old.startswith(f"{host}_"):
+                new = f"{entry_id}_{old[len(host) + 1:]}"
+        elif entity_entry.domain == "device_tracker" and old == f"{host}_gps":
+            new = f"{entry_id}_gps"
+
+        if new is None:
+            return None
+        _LOGGER.debug("Migrating unique_id %s -> %s", old, new)
+        return {"new_unique_id": new}
+
+    await er.async_migrate_entries(hass, entry_id, _migrate)

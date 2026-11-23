@@ -110,7 +110,7 @@ class PeplinkWANBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self.entity_description = description
         self._initial_sensor_data = sensor_data  # Keep reference to initial data as fallback
         self._wan_id = wan_id  # Store WAN ID to find the right data in updates
-        self._attr_unique_id = f"{coordinator.host}_wan{wan_id}_{description.key}_binary_{coordinator.config_entry.entry_id}"
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_wan{wan_id}_{description.key}_binary"
         self._attr_device_info = device_info
         
         # Set custom icon if provided

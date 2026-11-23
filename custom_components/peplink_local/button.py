@@ -167,8 +167,20 @@ class PeplinkWifiJoinButton(PeplinkControlEntity, ButtonEntity):
         net = wifi.find(self.coordinator.wifi_networks.get(wan_id, []), ssid)
         saved = wifi.find(self.coordinator.wifi_saved.get(wan_id, []), ssid)
         if saved is None and wifi.needs_password(net):
+            # Saved networks are per Wi-Fi WAN on Peplink routers.
+            elsewhere = [
+                conn.get("name") or f"WAN {conn.get('id')}"
+                for conn in (self.coordinator.data or {}).get("wan_status", {}).get("connection", [])
+                if str(conn.get("id")) != wan_id
+                and wifi.find(self.coordinator.wifi_saved.get(str(conn.get("id")), []), ssid)
+            ]
+            hint = (
+                f" It is saved on {', '.join(elsewhere)}, but each Wi-Fi WAN keeps its own"
+                " saved networks, so this one needs the password once."
+                if elsewhere else ""
+            )
             raise HomeAssistantError(
-                f"'{ssid}' needs a password: use Join with password"
+                f"'{ssid}' is secured and not saved on this WAN: use Join with password.{hint}"
             )
 
         async def join() -> None:

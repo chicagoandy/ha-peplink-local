@@ -45,6 +45,7 @@ from . import PeplinkDataUpdateCoordinator
 from .const import DOMAIN
 from . import wan_data
 from . import clients as client_util
+from . import wifi as wifi_util
 from .devices import wan_device_info
 
 _LOGGER = logging.getLogger(__name__)
@@ -525,6 +526,13 @@ async def async_setup_entry(
     # Connected clients: count of active clients, full list as an attribute.
     entities.append(PeplinkConnectedClientsSensor(coordinator))
 
+    # Wi-Fi WAN scan results and last join result.
+    for conn in coordinator.data.get("wan_status", {}).get("connection", []):
+        if wan_data.is_wifi(conn) and conn.get("enable"):
+            entities.append(PeplinkWifiNetworksSensor(coordinator, conn))
+            entities.append(PeplinkWifiJoinResultSensor(coordinator, conn))
+            entities.append(PeplinkWifiSavedSensor(coordinator, conn))
+
     # Per-WAN sensors: one sub-device per WAN reported by status.wan.connection
     # (disabled WANs included), traffic sensors where traffic stats exist.
     wan_connections = coordinator.data.get("wan_status", {}).get("connection", [])
@@ -883,6 +891,89 @@ class PeplinkConnectedClientsSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"clients": client_util.active_summaries(self._clients())}
+
+
+class PeplinkWifiNetworksSensor(CoordinatorEntity, SensorEntity):
+    """Networks found by the last scan (count; list in 'networks')."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Nearby Networks"
+    _attr_icon = "mdi:wifi-marker"
+    _attr_native_unit_of_measurement = "networks"
+    _unrecorded_attributes = frozenset({"networks"})
+
+    def __init__(self, coordinator: PeplinkDataUpdateCoordinator, conn: dict[str, Any]) -> None:
+        super().__init__(coordinator)
+        self._wan_id = str(conn.get("id"))
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_wan{self._wan_id}_wifi_networks"
+        self._attr_device_info = wan_device_info(coordinator, conn)
+
+    @property
+    def native_value(self) -> int | None:
+        nets = self.coordinator.wifi_networks.get(self._wan_id)
+        return None if nets is None else len(nets)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        scanned = self.coordinator.wifi_scanned_at.get(self._wan_id)
+        return {
+            "networks": [
+                {k: v for k, v in n.items() if k != "bssid"}
+                for n in self.coordinator.wifi_networks.get(self._wan_id, [])
+            ],
+            "last_scan": scanned.isoformat() if scanned else None,
+        }
+
+
+class PeplinkWifiJoinResultSensor(CoordinatorEntity, SensorEntity):
+    """Outcome of the last join on this Wi-Fi WAN (Connected, Wrong password...)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Last Join Result"
+    _attr_icon = "mdi:wifi-check"
+
+    def __init__(self, coordinator: PeplinkDataUpdateCoordinator, conn: dict[str, Any]) -> None:
+        super().__init__(coordinator)
+        self._wan_id = str(conn.get("id"))
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_wan{self._wan_id}_wifi_join_result"
+        self._attr_device_info = wan_device_info(coordinator, conn)
+
+    @property
+    def native_value(self) -> str | None:
+        return wifi_util.result_text(self.coordinator.wifi_results.get(self._wan_id))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        result = self.coordinator.wifi_results.get(self._wan_id) or {}
+        return {k: result.get(k) for k in ("ssid", "result", "message", "timestamp") if k in result}
+
+
+class PeplinkWifiSavedSensor(CoordinatorEntity, SensorEntity):
+    """Networks saved on the router for this Wi-Fi WAN (count; list in 'networks').
+
+    Each entry: ssid, security type, auto_connect, priority (router order).
+    Passwords are never exposed.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Saved Networks"
+    _attr_icon = "mdi:wifi-lock"
+    _attr_native_unit_of_measurement = "networks"
+
+    def __init__(self, coordinator: PeplinkDataUpdateCoordinator, conn: dict[str, Any]) -> None:
+        super().__init__(coordinator)
+        self._wan_id = str(conn.get("id"))
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_wan{self._wan_id}_wifi_saved"
+        self._attr_device_info = wan_device_info(coordinator, conn)
+
+    @property
+    def native_value(self) -> int | None:
+        saved = self.coordinator.wifi_saved.get(self._wan_id)
+        return None if saved is None else len(saved)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"networks": self.coordinator.wifi_saved.get(self._wan_id, [])}
 
 
 def _translate_wan_type(wan_type: str) -> str | None:

@@ -45,6 +45,13 @@ This custom integration allows you to monitor and track your Peplink router from
   - **Reset Cellular Module** and **Rescan Cellular Network** buttons for cellular WANs
   - **Reboot** button for the router
   - **Reboot / Stow / Unstow Starlink** buttons for a WAN named "Starlink" (firmware 8.5.0+, needs a Care Plan)
+- **Wi-Fi WAN networks** (for each enabled Wi-Fi WAN):
+  - **Scan Networks** button, **Nearby Networks** sensor (count; list with signal, channel, security, saved)
+  - **Saved Networks** sensor (count; list with security, auto-connect and priority; passwords are never shown)
+  - **Network** select: networks in range and saved networks. Choosing one does not join it
+  - **Join** button (open and saved networks), **Forget** button, **Disconnect Wi-Fi** button
+  - **Last Join Result** sensor: Connected / Wrong password / Network not found / Timed out
+  - Actions `peplink_local.join_wifi` (with password, for new networks) and `peplink_local.forget_wifi`, targeting the Network select
 - **Configurable Polling**: Adjust how frequently the integration polls your router (default: 5 seconds)
 
 ## Requirements

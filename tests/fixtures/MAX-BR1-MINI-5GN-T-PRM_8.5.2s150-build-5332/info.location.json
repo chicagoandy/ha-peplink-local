@@ -3,12 +3,12 @@
     "gps": true,
     "location": {
       "altitude": 100.0,
-      "heading": 5.3,
+      "heading": 160.7,
       "latitude": 40.0,
       "longitude": -75.0,
-      "speed": 0.102889,
-      "timeElapsed": 15,
-      "timestamp": 1795445614
+      "speed": 0.051444,
+      "timeElapsed": 18,
+      "timestamp": 1795449365
     }
   },
   "stat": "ok"

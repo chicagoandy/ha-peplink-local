@@ -5,21 +5,28 @@
         "enable": false,
         "hasSmtp": false
       },
+      "dns": [
+        "203.0.113.2",
+        "203.0.113.3"
+      ],
       "enable": true,
+      "gateway": "100.64.0.1",
+      "ip": "100.69.158.177",
       "locked": false,
       "managementOnly": false,
-      "message": "No Cable Detected",
+      "mask": 10,
+      "message": "Standby",
       "method": "dhcp",
       "mtu": 1440,
       "name": "Starlink",
       "portId": 1,
       "priority": 3,
       "routingMode": "NAT",
-      "statusLed": "red",
+      "statusLed": "yellow",
       "type": "ethernet",
       "uptime": 0,
       "virtual": false,
-      "virtualType": "ethernet"
+      "virtualType": "starlink"
     },
     "2": {
       "bandwidthAllowanceMonitor": {
@@ -61,9 +68,9 @@
                 "name": "5G Band n71 (600 MHz)",
                 "pci": 900001,
                 "signal": {
-                  "rsrp": -105,
+                  "rsrp": -104,
                   "rsrq": -16.0,
-                  "sinr": 11.0
+                  "sinr": 7.0
                 }
               },
               {
@@ -177,15 +184,15 @@
       "routingMode": "IP Forwarding",
       "statusLed": "green",
       "type": "wifi",
-      "uptime": 70978,
+      "uptime": 74732,
       "virtual": false,
       "virtualType": "wifi",
       "wifi": {
-        "bssid": "02:00:00:00:00:15",
+        "bssid": "02:00:00:00:00:01",
         "channel": 36,
         "signal": {
           "level": 4,
-          "strength": -65
+          "strength": -68
         },
         "ssid": "ssid-1"
       }
@@ -216,9 +223,9 @@
       4,
       5
     ],
-    "reportTimestamp": 1795445623,
+    "reportTimestamp": 1795449377,
     "supportGatewayProxy": true,
-    "timestamp": 1795445623
+    "timestamp": 1795449377
   },
   "stat": "ok"
 }

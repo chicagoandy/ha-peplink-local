@@ -6,10 +6,10 @@
         "connectionType": "ethernet",
         "ip": "192.168.50.2",
         "lease": {
-          "expiresIn": 61344,
+          "expiresIn": 57620,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:01",
+        "mac": "02:00:00:00:00:02",
         "name": "client-1"
       },
       {
@@ -17,10 +17,10 @@
         "connectionType": "ethernet",
         "ip": "192.168.50.10",
         "lease": {
-          "expiresIn": 61351,
+          "expiresIn": 57627,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:02",
+        "mac": "02:00:00:00:00:03",
         "name": "client-2"
       },
       {
@@ -28,10 +28,10 @@
         "connectionType": "ethernet",
         "ip": "192.168.50.11",
         "lease": {
-          "expiresIn": 82944,
+          "expiresIn": 79220,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:03",
+        "mac": "02:00:00:00:00:04",
         "name": "client-3"
       },
       {
@@ -42,7 +42,7 @@
           "expiresIn": 0,
           "type": "normal"
         },
-        "mac": "02:00:00:00:00:04",
+        "mac": "02:00:00:00:00:05",
         "name": "client-4"
       },
       {
@@ -50,10 +50,10 @@
         "connectionType": "ethernet",
         "ip": "192.168.50.13",
         "lease": {
-          "expiresIn": 58609,
+          "expiresIn": 54885,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:05",
+        "mac": "02:00:00:00:00:06",
         "name": "client-5"
       },
       {
@@ -61,10 +61,10 @@
         "connectionType": "ethernet",
         "ip": "192.168.50.17",
         "lease": {
-          "expiresIn": 58072,
+          "expiresIn": 54348,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:06",
+        "mac": "02:00:00:00:00:07",
         "name": "client-6"
       },
       {
@@ -72,10 +72,10 @@
         "connectionType": "ethernet",
         "ip": "192.168.50.29",
         "lease": {
-          "expiresIn": 67392,
+          "expiresIn": 63668,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:07",
+        "mac": "02:00:00:00:00:08",
         "name": "client-7"
       },
       {
@@ -83,20 +83,20 @@
         "connectionType": "ethernet",
         "ip": "192.168.50.48",
         "lease": {
-          "expiresIn": 58066,
+          "expiresIn": 54342,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:08",
+        "mac": "02:00:00:00:00:09",
         "name": "client-8"
       },
       {
         "active": true,
-        "bssid": "02:00:00:00:00:09",
+        "bssid": "02:00:00:00:00:0b",
         "connectionType": "wireless",
         "essid": "essid-1",
         "ip": "192.168.50.49",
         "lease": {
-          "expiresIn": 58214,
+          "expiresIn": 54490,
           "type": "dhcp"
         },
         "mac": "02:00:00:00:00:0a",
@@ -106,104 +106,104 @@
         "active": false,
         "ip": "192.168.50.51",
         "lease": {
-          "expiresIn": 24105,
+          "expiresIn": 20381,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:0f",
-        "name": "client-14"
+        "mac": "02:00:00:00:00:0c",
+        "name": "client-10"
       },
       {
         "active": false,
         "ip": "192.168.50.67",
         "lease": {
-          "expiresIn": 24140,
+          "expiresIn": 20416,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:10",
-        "name": "client-15"
+        "mac": "02:00:00:00:00:0d",
+        "name": "client-11"
       },
       {
         "active": true,
         "connectionType": "ethernet",
         "ip": "192.168.50.97",
         "lease": {
-          "expiresIn": 58071,
+          "expiresIn": 54347,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:0b",
-        "name": "client-10"
+        "mac": "02:00:00:00:00:0e",
+        "name": "client-12"
       },
       {
         "active": true,
         "connectionType": "ethernet",
         "ip": "192.168.50.118",
         "lease": {
-          "expiresIn": 61398,
+          "expiresIn": 57674,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:0c",
-        "name": "client-11"
+        "mac": "02:00:00:00:00:0f",
+        "name": "client-13"
       },
       {
         "active": false,
         "ip": "192.168.50.141",
         "lease": {
-          "expiresIn": 39452,
+          "expiresIn": 35728,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:11",
-        "name": "client-16"
+        "mac": "02:00:00:00:00:10",
+        "name": "client-14"
       },
       {
         "active": true,
         "connectionType": "ethernet",
         "ip": "192.168.50.148",
         "lease": {
-          "expiresIn": 58070,
+          "expiresIn": 54346,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:0d",
-        "name": "client-12"
+        "mac": "02:00:00:00:00:11",
+        "name": "client-15"
       },
       {
         "active": true,
         "connectionType": "ethernet",
         "ip": "192.168.50.156",
         "lease": {
-          "expiresIn": 58370,
+          "expiresIn": 54646,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:0e",
-        "name": "client-13"
+        "mac": "02:00:00:00:00:12",
+        "name": "client-16"
       },
       {
         "active": false,
         "ip": "192.168.50.178",
         "lease": {
-          "expiresIn": 23394,
+          "expiresIn": 19670,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:12",
+        "mac": "02:00:00:00:00:13",
         "name": "client-17"
       },
       {
         "active": false,
         "ip": "192.168.50.192",
         "lease": {
-          "expiresIn": 6108,
+          "expiresIn": 2384,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:13",
+        "mac": "02:00:00:00:00:14",
         "name": "client-18"
       },
       {
         "active": false,
         "ip": "192.168.50.232",
         "lease": {
-          "expiresIn": 82622,
+          "expiresIn": 78898,
           "type": "dhcp"
         },
-        "mac": "02:00:00:00:00:14",
+        "mac": "02:00:00:00:00:15",
         "name": "client-19"
       }
     ]

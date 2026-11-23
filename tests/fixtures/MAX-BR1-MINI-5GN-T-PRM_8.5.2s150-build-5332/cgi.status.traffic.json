@@ -1,0 +1,169 @@
+{
+  "response": {
+    "bandwidth": {
+      "1": {
+        "details": {
+          "http": {
+            "download": 0,
+            "upload": 0
+          },
+          "https": {
+            "download": 0,
+            "upload": 0
+          },
+          "imap": {
+            "download": 0,
+            "upload": 0
+          },
+          "others": {
+            "download": 2,
+            "upload": 2
+          },
+          "pop3": {
+            "download": 0,
+            "upload": 0
+          },
+          "smtp": {
+            "download": 0,
+            "upload": 0
+          }
+        },
+        "name": "Starlink",
+        "overall": {
+          "download": 2,
+          "upload": 2
+        },
+        "portType": "ethernet",
+        "virtual": false
+      },
+      "2": {
+        "details": {
+          "http": {
+            "download": 0,
+            "upload": 0
+          },
+          "https": {
+            "download": 0,
+            "upload": 0
+          },
+          "imap": {
+            "download": 0,
+            "upload": 0
+          },
+          "others": {
+            "download": 0,
+            "upload": 0
+          },
+          "pop3": {
+            "download": 0,
+            "upload": 0
+          },
+          "smtp": {
+            "download": 0,
+            "upload": 0
+          }
+        },
+        "name": "Google Fi",
+        "overall": {
+          "download": 0,
+          "upload": 0
+        },
+        "portType": "gobi",
+        "virtual": false
+      },
+      "4": {
+        "details": {
+          "http": {
+            "download": 5,
+            "upload": 66
+          },
+          "https": {
+            "download": 42,
+            "upload": 85
+          },
+          "imap": {
+            "download": 0,
+            "upload": 0
+          },
+          "others": {
+            "download": 5,
+            "upload": 16
+          },
+          "pop3": {
+            "download": 0,
+            "upload": 0
+          },
+          "smtp": {
+            "download": 0,
+            "upload": 0
+          }
+        },
+        "name": "Wi-Fi WAN on 5 GHz",
+        "overall": {
+          "download": 53,
+          "upload": 167
+        },
+        "portType": "wifi",
+        "virtual": false
+      },
+      "order": [
+        1,
+        2,
+        4
+      ],
+      "timestamp": 1795449386,
+      "unit": "kbps"
+    },
+    "lifetime": {
+      "all": {
+        "overall": {
+          "download": 1104360,
+          "upload": 741613
+        }
+      },
+      "datetime": "Mon Jul 28 21:50:50 EDT 2025",
+      "order": [
+        "all"
+      ],
+      "timestamp": 1753753850,
+      "unit": "MB"
+    },
+    "traffic": {
+      "1": {
+        "name": "Starlink",
+        "overall": {
+          "download": 0,
+          "upload": 0
+        },
+        "portType": "ethernet",
+        "virtual": false
+      },
+      "2": {
+        "name": "Google Fi",
+        "overall": {
+          "download": 166,
+          "upload": 55
+        },
+        "portType": "gobi",
+        "virtual": false
+      },
+      "4": {
+        "name": "Wi-Fi WAN on 5 GHz",
+        "overall": {
+          "download": 1058,
+          "upload": 4914
+        },
+        "portType": "wifi",
+        "virtual": false
+      },
+      "order": [
+        1,
+        2,
+        4
+      ],
+      "timestamp": 1795449386,
+      "unit": "MB"
+    }
+  },
+  "stat": "ok"
+}

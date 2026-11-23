@@ -1,0 +1,29 @@
+{
+  "response": {
+    "device": {
+      "carePlan": {
+        "active": true,
+        "expiry": 1846540800,
+        "name": "PrimeCare",
+        "timezone": "America/New_York"
+      },
+      "company": "Peplink",
+      "descriptionSupport": "",
+      "firmwareVersion": "8.5.2s150 build 5332",
+      "hardwareRevision": "2",
+      "host": "max-br1-3499",
+      "legal": true,
+      "model": "Peplink MAX BR1 Mini 5G",
+      "name": "MAX-BR1-3499",
+      "pepvpnVersion": "9.2.3",
+      "productCode": "MAX-BR1-MINI-5GN-T-PRM",
+      "serialNumber": "serialnumber-1"
+    },
+    "systemTime": {
+      "string": "Mon Nov 23 10:56:24 EST 2026",
+      "timestamp": 1795449384,
+      "timezone": "America/New_York"
+    }
+  },
+  "stat": "ok"
+}

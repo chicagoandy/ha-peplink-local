@@ -185,6 +185,9 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.product_code = None  # Can be updated later if the API provides product code
         self.hardware_revision = None  # Can be updated later if the API provides hardware revision
         self.router_device_id: str | None = None
+        self._optional_failing: set[str] = set()
+        self._firmware_at: float | None = None
+        self._documented_firmware: str | None = None
         # MACs seen before, persisted so restarts don't re-announce them.
         self._client_store: Store = Store(
             hass, 1, f"{DOMAIN}.{config_entry.entry_id}.known_clients"
@@ -268,6 +271,26 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             lambda: {"macs": sorted(self._known_macs or [])}, 10
         )
 
+    def _optional(self, name: str, result: Any, empty: Any) -> Any:
+        """Result of an optional call, or `empty` if it failed.
+
+        Logs a warning the first time a source fails and a note when it
+        recovers, instead of failing the whole update.
+        """
+        failed = isinstance(result, Exception) or not result
+        if failed:
+            if name not in self._optional_failing:
+                self._optional_failing.add(name)
+                _LOGGER.warning(
+                    "Peplink %s unavailable (%s); only its sensors are affected",
+                    name, result if isinstance(result, Exception) else "empty response",
+                )
+            return empty
+        if name in self._optional_failing:
+            self._optional_failing.discard(name)
+            _LOGGER.info("Peplink %s available again", name)
+        return result
+
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via API."""
         try:
@@ -275,42 +298,51 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not await self.api.ensure_connected():
                 raise UpdateFailed("Failed to connect to Peplink router")
 
-            # Parallelize API calls using asyncio.gather
-            # Use the new combined system info API for device info, thermal sensors, and fan speeds
+            # Documented API (required): WAN status and clients. If either
+            # fails, the update fails.
+            # Router web-UI API (optional, undocumented): system info and
+            # traffic. Location tries the documented /api/info.location first.
+            # A failed optional call only empties its own sensors.
             results = await asyncio.gather(
                 self.api.get_wan_status(),
                 self.api.get_clients(),
-                self.api.get_system_info(),  # Combined system info call
+                self.api.get_system_info(),
                 self.api.get_traffic_stats(),
-                self.api.get_location(),      # Get location data from GPS
+                self.api.get_location(),
                 return_exceptions=True,
             )
-            
-            # Check results for exceptions
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    api_calls = ["WAN status", "client information", "system information", "traffic statistics", "location information"]
-                    raise UpdateFailed(f"Failed to get {api_calls[i]}: {result}")
-                
-            # Unpack results
             wan_status, clients, system_info, traffic_stats, location_info = results
-            
-            # Extract components from the combined system_info call
-            thermal_sensors = system_info.get("thermal_sensors", {"sensors": []})
-            fan_speeds = system_info.get("fan_speeds", {"fans": []})
-            device_info = {"device_info": system_info.get("device_info", {})} 
-            system_time = system_info.get("system_time", {})
-            
-            # Validate results
+
+            for name, result in (("WAN status", wan_status), ("client information", clients)):
+                if isinstance(result, Exception):
+                    raise UpdateFailed(f"Failed to get {name}: {result}") from result
             if not wan_status:
                 raise UpdateFailed("Failed to get WAN status")
-            if not clients:
-                raise UpdateFailed("Failed to get client information")
-            if not system_info:
-                raise UpdateFailed("Failed to get system information")
-            if not traffic_stats:
-                raise UpdateFailed("Failed to get traffic statistics")
-                
+            if not isinstance(clients, dict):
+                clients = {"client": []}
+
+            system_info = self._optional("system information", system_info, {})
+            traffic_stats = self._optional("traffic statistics", traffic_stats, {"stats": []})
+            location_info = self._optional(
+                "location", location_info, {"gps": False, "type": "Unknown", "location": {}}
+            )
+
+            thermal_sensors = system_info.get("thermal_sensors", {"sensors": []})
+            fan_speeds = system_info.get("fan_speeds", {"fans": []})
+            device_info = {"device_info": system_info.get("device_info", {})}
+            system_time = system_info.get("system_time", {})
+
+            # Firmware version from the documented info.firmware (hourly).
+            if self._firmware_at is None or time.monotonic() - self._firmware_at > 3600:
+                try:
+                    version = await self.api.get_firmware_version()
+                except Exception as err:
+                    _LOGGER.debug("info.firmware unavailable: %s", err)
+                    version = None
+                self._firmware_at = time.monotonic()
+                if version:
+                    self._documented_firmware = version
+
             self._announce_new_clients(clients.get("client", []))
             if self._wifi_watch:
                 await self._async_poll_wifi_results()
@@ -326,6 +358,9 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self.model = device_info_data.get("model")
                 if device_info_data.get("firmware_version"):
                     self.firmware = device_info_data.get("firmware_version")
+            if self._documented_firmware:
+                self.firmware = self._documented_firmware
+                device_info_data = {**device_info_data, "firmware_version": self._documented_firmware}
                 if device_info_data.get("name"):
                     self.device_name = device_info_data.get("name")
                 if device_info_data.get("serial_number"):

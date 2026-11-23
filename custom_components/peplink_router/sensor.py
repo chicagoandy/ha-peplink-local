@@ -487,7 +487,8 @@ async def async_setup_entry(
                 )
 
     # Add device info sensors
-    device_info = coordinator.data.get("device_info", {}).get("device_info", {})
+    # The coordinator stores device info flat under "device_info".
+    device_info = coordinator.data.get("device_info", {})
     if device_info:
         for description in SENSOR_TYPES:
             if description.key.startswith("device_"):

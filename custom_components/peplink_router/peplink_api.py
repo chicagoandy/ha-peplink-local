@@ -878,7 +878,15 @@ class PeplinkAPI:
                 }
         """
         try:
-            response = await self._make_api_request("info.location", public_api=False)
+            # Documented /api/info.location (fw 8.0.1+) first; fall back to the
+            # web-UI endpoint for older firmware or if it fails.
+            try:
+                response = await self._make_api_request("info.location", public_api=True)
+            except Exception as err:
+                _LOGGER.debug("Documented info.location failed (%s), using web-UI endpoint", err)
+                response = None
+            if not (isinstance(response, dict) and response.get("stat") == "ok"):
+                response = await self._make_api_request("info.location", public_api=False)
             
             if "stat" in response and response["stat"] == "ok" and "response" in response:
                 location_data = response["response"]
@@ -928,6 +936,17 @@ class PeplinkAPI:
         if response.get("warning"):
             _LOGGER.warning("%s: %s", func, response["warning"])
         return response
+
+    async def get_firmware_version(self) -> str | None:
+        """Version of the firmware in use, from the documented info.firmware."""
+        result = await self._get("info.firmware")
+        if not isinstance(result, dict):
+            return None
+        for key in result.get("order") or [k for k in result if k != "order"]:
+            image = result.get(str(key)) or {}
+            if image.get("inUse"):
+                return image.get("version")
+        return None
 
     async def apply_config(self) -> None:
         """Apply pending configuration changes (cmd.config.apply, fw 7.1.1+)."""

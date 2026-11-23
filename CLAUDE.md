@@ -49,9 +49,9 @@ All coordinator data is stored under `hass.data[DOMAIN][entry_id]["coordinator"]
 
 ### API Layer (peplink_api.py)
 
-Two API bases are used:
-- **Official API**: `https://{host}/api/` — authentication (`/api/login`), WAN status (`/api/status.wan.connection`), clients (`/api/status.client`)
-- **Unofficial CGI API**: `https://{host}/cgi-bin/MANGA/api.cgi?func=<function>&_=<timestamp>` — traffic stats, fan speeds, thermal sensors, device info, GPS location
+Two API bases are used. Prefer the documented one wherever it has the data:
+- **Documented API**: `https://{host}/api/` — authentication (`/api/login`), WAN status, clients, GPS (`/api/info.location`, web-UI fallback), firmware version (`/api/info.firmware`), Wi-Fi WAN and configuration commands. WAN status and clients are required: if they fail, the update fails.
+- **Undocumented web-UI API**: `https://{host}/cgi-bin/MANGA/api.cgi?func=<function>&_=<timestamp>` — traffic rates (`status.traffic`) and model/serial/temperature/fans (`status.system.info`). Peplink's API docs (through firmware 8.6.0) have no equivalent. These calls are optional: a failure empties only their sensors and logs one warning (`PeplinkDataUpdateCoordinator._optional`).
 
 Authentication uses cookie-based sessions (`bauth` cookie). The `_` parameter in CGI requests is the current Unix timestamp in milliseconds.
 

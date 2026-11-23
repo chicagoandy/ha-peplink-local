@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to Peplink Router",
-        "description": "Set up a Peplink router integration to monitor WAN status and track devices.",
+        "description": "Your admin login is used once to create an API client named \"Home Assistant\" on the router. Home Assistant keeps only that client's ID and secret, never your password. Remove the client on the router to revoke access.",
         "data": {
           "host": "IP Address",
           "username": "Username",
@@ -11,16 +11,26 @@
           "verify_ssl": "Verify SSL Certificate",
           "poll_frequency": "Polling Frequency"
         }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to the Peplink router again",
+        "description": "The router no longer accepts Home Assistant's API client at {host} (it may have been removed). Enter an admin login once to create a new one; the password is not stored.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to the router",
       "invalid_auth": "Invalid authentication",
       "ssl_error": "SSL certificate validation failed. Try disabling SSL verification.",
-      "unknown": "Unexpected error"
+      "unknown": "Unexpected error",
+      "api_client_failed": "The router would not create an API client. Use an admin account with read-write access (firmware 7.0 or later)."
     },
     "abort": {
-      "already_configured": "Device is already configured"
+      "already_configured": "Device is already configured",
+      "reauth_successful": "Signed in again: Home Assistant now uses a new API client."
     }
   },
   "options": {

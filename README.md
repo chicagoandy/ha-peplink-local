@@ -59,7 +59,7 @@ Monitor and control a Peplink / Pepwave router from Home Assistant over its loca
 ## Requirements
 
 - The router must be accessible on your local network
-- Valid admin credentials for your Peplink router
+- An admin login for your Peplink router (used once during setup, see below)
 - Peplink firmware version 8.1.1 or higher
 
 ## Installation
@@ -90,11 +90,18 @@ Peplink Router is a separate integration. Remove Peplink Local first (Settings �
 2. Search for "Peplink Router"
 3. Enter the following information:
    - **IP Address**: The IP address of your Peplink router
-   - **Username**: Admin username for your Peplink router
-   - **Password**: Admin password for your Peplink router
+   - **Username** and **Password**: an admin login for your Peplink router (used once, not stored)
    - **Verify SSL** (optional): Disable this if your router uses a self-signed certificate
    - **Polling Frequency** (optional): How often to poll the router for updates (in seconds, default: 5)
 4. Click "Submit"
+
+### How Home Assistant signs in
+
+Setup uses your admin login once to create an **API client** named "Home Assistant" on the router, then signs out. Home Assistant stores only that client's ID and secret, never your admin password. It uses them to get short-lived access tokens (48 hours on current firmware), held in memory and renewed automatically.
+
+- **To revoke access**, remove the "Home Assistant" API client on the router. Home Assistant then asks you to sign in again (Settings → Devices & services → Peplink Router → Reconfigure), which creates a new client.
+- **Entries set up before 1.0.0-beta7** stored the admin login. The first time a newer version starts, it creates the API client with that login and deletes the stored password.
+- **Removing the integration** does not remove the API client from the router; delete it there if you no longer need it.
 
 ## GPS Features
 

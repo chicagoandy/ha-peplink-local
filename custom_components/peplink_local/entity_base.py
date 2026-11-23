@@ -80,19 +80,8 @@ async def async_join_chosen_network(
     net = wifi.find(coordinator.wifi_networks.get(wan_id, []), ssid)
     saved = wifi.find(coordinator.wifi_saved.get(wan_id, []), ssid)
     if not password and saved is None and wifi.needs_password(net):
-        elsewhere = [
-            conn.get("name") or f"WAN {conn.get('id')}"
-            for conn in (coordinator.data or {}).get("wan_status", {}).get("connection", [])
-            if str(conn.get("id")) != wan_id
-            and wifi.find(coordinator.wifi_saved.get(str(conn.get("id")), []), ssid)
-        ]
-        hint = (
-            f" (It is saved on {', '.join(elsewhere)}, but each Wi-Fi WAN keeps its own"
-            " saved networks.)"
-            if elsewhere else ""
-        )
         raise HomeAssistantError(
-            f"'{ssid}' needs its password: type it in Password and press Enter.{hint}"
+            f"'{ssid}' needs its password: type it in Password and press Enter."
         )
 
     async def join() -> None:

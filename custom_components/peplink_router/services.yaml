@@ -1,7 +1,7 @@
 join_wifi:
   target:
     entity:
-      integration: peplink_local
+      integration: peplink_router
       domain: select
   fields:
     password:
@@ -18,7 +18,7 @@ join_wifi:
 forget_wifi:
   target:
     entity:
-      integration: peplink_local
+      integration: peplink_router
       domain: select
   fields:
     ssid:

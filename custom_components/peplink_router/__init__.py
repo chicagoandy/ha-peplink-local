@@ -1,9 +1,8 @@
-"""The Peplink Local integration."""
+"""The Peplink Router integration."""
 from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import time
 from datetime import timedelta
 from typing import Any
@@ -20,7 +19,6 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
@@ -53,12 +51,12 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the Peplink Local component."""
+    """Set up the Peplink Router component."""
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Peplink Local from a config entry."""
+    """Set up Peplink Router from a config entry."""
     host = entry.data[CONF_HOST]
     username = entry.data[CONF_USERNAME]
     password = entry.data[CONF_PASSWORD]
@@ -123,8 +121,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # WAN sub-devices link to the router through its registry ID.
         coordinator.router_device_id = router_device.id
-
-        await _async_migrate_unique_ids(hass, entry, coordinator)
 
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -241,7 +237,7 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._known_macs = set(data["macs"])
 
     def _announce_new_clients(self, client_list: list[dict[str, Any]]) -> None:
-        """Fire peplink_local_new_client for each MAC never seen before.
+        """Fire peplink_router_new_client for each MAC never seen before.
 
         The very first poll after the integration is added only records the
         clients already on the network; nothing is announced for them.
@@ -354,56 +350,3 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as e:
             _LOGGER.exception("Failed to update data: %s", e)
             raise UpdateFailed(f"Failed to update data: {e}") from e
-
-
-_WAN_UNIQUE_ID = re.compile(r"^(?P<prefix>.+?)_wan(?P<wan>\d+)_(?P<key>.+)$")
-
-
-async def _async_migrate_unique_ids(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    coordinator: PeplinkDataUpdateCoordinator,
-) -> None:
-    """Move entities from host/name-based unique IDs to entry-ID-based ones.
-
-    Up to 0.3.7 unique IDs started with the router's IP address (static and
-    binary sensors, GPS tracker) or its device name (WAN sensors), so changing
-    either orphaned every entity and created duplicates. They now start with
-    the config entry ID. Entity IDs, names and history are kept.
-    """
-    entry_id = entry.entry_id
-    host = entry.data[CONF_HOST]
-
-    @callback
-    def _migrate(entity_entry: er.RegistryEntry) -> dict[str, Any] | None:
-        old = entity_entry.unique_id
-        if old.startswith(f"{entry_id}_"):
-            return None  # already migrated
-
-        new: str | None = None
-        if entity_entry.domain == "binary_sensor":
-            suffix = f"_binary_{entry_id}"
-            if old.endswith(suffix) and (m := _WAN_UNIQUE_ID.match(old[: -len(suffix)])):
-                new = f"{entry_id}_wan{m['wan']}_{m['key']}_binary"
-        elif entity_entry.domain == "sensor":
-            # Only this entry's entities are visited, so any "<x>_wan<n>_<key>"
-            # is ours, even if the router was renamed since it was created.
-            if m := _WAN_UNIQUE_ID.match(old):
-                new = f"{entry_id}_wan{m['wan']}_{m['key']}"
-            elif old.startswith(f"{host}_"):
-                new = f"{entry_id}_{old[len(host) + 1:]}"
-        elif entity_entry.domain == "device_tracker" and old == f"{host}_gps":
-            new = f"{entry_id}_gps"
-
-        if new is None:
-            return None
-        _LOGGER.debug("Migrating unique_id %s -> %s", old, new)
-        return {"new_unique_id": new}
-
-    await er.async_migrate_entries(hass, entry_id, _migrate)
-
-    # 0.4.0 beta: routing mode moved from a read-only sensor to a select.
-    registry = er.async_get(hass)
-    for entity_entry in er.async_entries_for_config_entry(registry, entry_id):
-        if entity_entry.domain == "sensor" and entity_entry.unique_id.endswith("_routing_mode"):
-            registry.async_remove(entity_entry.entity_id)

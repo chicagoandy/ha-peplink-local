@@ -21,7 +21,7 @@ import pytest
 from aioresponses import aioresponses
 
 ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "custom_components" / "peplink_local"))
+sys.path.insert(0, str(ROOT / "custom_components" / "peplink_router"))
 from peplink_api import PeplinkAPI  # noqa: E402  isort:skip
 
 FIXTURES = ROOT / "tests" / "fixtures"

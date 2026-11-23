@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a Home Assistant custom integration (`peplink_local`) for monitoring Peplink routers via their local API. It is distributed via HACS and requires Home Assistant 2025.1.0+.
+This is a Home Assistant custom integration (`peplink_router`) for monitoring Peplink routers via their local API. It is distributed via HACS and requires Home Assistant 2025.1.0+.
 
 ## Dependencies
 

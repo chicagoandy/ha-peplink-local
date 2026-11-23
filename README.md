@@ -1,12 +1,14 @@
-# Home Assistant Peplink Local Integration
+# Peplink Router for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 [![GitHub Release][releases-shield]][releases]
 [![License][license-shield]](LICENSE)
 
-This custom integration allows you to monitor and track your Peplink router from Home Assistant. It uses the local Peplink API to provide sensors for WAN connections and device tracking capabilities.
+Monitor and control a Peplink / Pepwave router from Home Assistant over its local API: WAN status and cellular signal, traffic, connected clients, GPS, WAN and routing-mode controls, and Wi-Fi WAN scanning and joining.
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=weirded&repository=ha-peplink-local&category=integration)
+> **Origin:** Peplink Router began as a fork of [Peplink Local](https://github.com/weirded/ha-peplink-local) by Stefan Zier (Apache 2.0, see [NOTICE](NOTICE)) and is now developed separately. It uses its own integration domain (`peplink_router`), so it can be installed alongside or instead of Peplink Local without clashing.
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chicagoandy&repository=ha-peplink-router&category=integration)
 
 ## Features
 
@@ -33,7 +35,7 @@ This custom integration allows you to monitor and track your Peplink router from
   - Heading Sensor (degrees)
 - **Connected Clients**: one sensor with the number of active clients and the full list (name, IP, MAC, connection type, SSID, signal) as its `clients` attribute
 - **Client Tracking (opt-in)**: pick clients under **Configure → Clients to track** to get a device tracker for each, e.g. phones for presence or devices with no integration of their own
-- **New Client Event**: `peplink_local_new_client` fires when a device that has never been seen before joins the network (event data: `mac`, `name`, `ip`, `connection_type`, `ssid`), handy for "unknown device" alerts
+- **New Client Event**: `peplink_router_new_client` fires when a device that has never been seen before joins the network (event data: `mac`, `name`, `ip`, `connection_type`, `ssid`), handy for "unknown device" alerts
 - **Traffic Statistics**:
   - WAN Download (data rate sensor)
   - WAN Upload (data rate sensor)
@@ -53,7 +55,7 @@ This custom integration allows you to monitor and track your Peplink router from
   - **Forget** and **Disconnect Wi-Fi** buttons
   - **Last Join Result** sensor: Connected / Wrong password / Network not found / Timed out
   - **Configure → Join Wi-Fi network**: a form with the scanned and saved networks (or type a name) and a password box; nothing is stored in Home Assistant
-  - Actions `peplink_local.join_wifi` (with password, for new networks) and `peplink_local.forget_wifi`, targeting the Network select
+  - Actions `peplink_router.join_wifi` (with password, for new networks) and `peplink_router.forget_wifi`, targeting the Network select
 - **Configurable Polling**: Adjust how frequently the integration polls your router (default: 5 seconds)
 
 ## Requirements
@@ -64,26 +66,30 @@ This custom integration allows you to monitor and track your Peplink router from
 
 ## Installation
 
+### Moving from Peplink Local
+
+Peplink Router is a separate integration. Remove Peplink Local first (Settings → Devices & services → Peplink Local → Delete, then remove it in HACS), restart, then install Peplink Router below. Entity IDs come from the router and WAN names, so with Peplink Local's entities gone they come back the same.
+
 ### HACS Installation (Recommended)
 
 1. Ensure [HACS](https://hacs.xyz/) is installed in your Home Assistant instance
 2. Add this repository as a custom repository in HACS:
    - Go to HACS > Integrations > ⋮ > Custom repositories
-   - Add `https://github.com/weirded/ha-peplink-local` as a repository
+   - Add `https://github.com/chicagoandy/ha-peplink-router` as a repository
    - Select "Integration" as the category
-3. Click "Install" on the Peplink Local integration
+3. Click "Install" on the Peplink Router integration
 4. Restart Home Assistant
 
 ### Manual Installation
 
-1. Download the latest release from the [GitHub repository](https://github.com/weirded/ha-peplink-local)
-2. Extract the `custom_components/peplink_local` directory into your Home Assistant's `custom_components` directory
+1. Download the latest release from the [GitHub repository](https://github.com/chicagoandy/ha-peplink-router)
+2. Extract the `custom_components/peplink_router` directory into your Home Assistant's `custom_components` directory
 3. Restart Home Assistant
 
 ## Configuration
 
 1. Go to **Settings** > **Devices & Services** > **Add Integration**
-2. Search for "Peplink Local"
+2. Search for "Peplink Router"
 3. Enter the following information:
    - **IP Address**: The IP address of your Peplink router
    - **Username**: Admin username for your Peplink router
@@ -102,12 +108,12 @@ The GPS tracking features are automatically enabled when your Peplink router has
 
 ## Contributing
 
-Contributions to improve the integration are welcome! Please feel free to submit a pull request or open an issue on the [GitHub repository](https://github.com/weirded/ha-peplink-local).
+Contributions to improve the integration are welcome! Please feel free to submit a pull request or open an issue on the [GitHub repository](https://github.com/chicagoandy/ha-peplink-router).
 
 ## License
 
 This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
 
-[releases-shield]: https://img.shields.io/github/release/weirded/ha-peplink-local.svg?style=for-the-badge
-[releases]: https://github.com/weirded/ha-peplink-local/releases
-[license-shield]: https://img.shields.io/github/license/weirded/ha-peplink-local.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/chicagoandy/ha-peplink-router.svg?style=for-the-badge
+[releases]: https://github.com/chicagoandy/ha-peplink-router/releases
+[license-shield]: https://img.shields.io/github/license/chicagoandy/ha-peplink-router.svg?style=for-the-badge

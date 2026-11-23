@@ -21,11 +21,14 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from . import clients as client_util
 from .const import (
     DOMAIN,
+    EVENT_NEW_CLIENT,
     CONF_POLL_FREQUENCY,
     DEFAULT_POLL_FREQUENCY,
     SCAN_INTERVAL,
@@ -77,6 +80,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config_entry=entry,
         )
 
+        await coordinator.async_load_known_clients()
         await coordinator.async_config_entry_first_refresh()
 
         hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
@@ -136,6 +140,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the stored list of known clients when the integration is removed."""
+    await Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.known_clients").async_remove()
+
+
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload the config entry after its options change."""
     await hass.config_entries.async_reload(entry.entry_id)
@@ -170,6 +179,49 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.product_code = None  # Can be updated later if the API provides product code
         self.hardware_revision = None  # Can be updated later if the API provides hardware revision
         self.router_device_id: str | None = None
+        # MACs seen before, persisted so restarts don't re-announce them.
+        self._client_store: Store = Store(
+            hass, 1, f"{DOMAIN}.{config_entry.entry_id}.known_clients"
+        )
+        self._known_macs: set[str] | None = None
+
+    async def async_load_known_clients(self) -> None:
+        """Load the MACs seen in earlier runs (None until the first save)."""
+        data = await self._client_store.async_load()
+        if data and isinstance(data.get("macs"), list):
+            self._known_macs = set(data["macs"])
+
+    def _announce_new_clients(self, client_list: list[dict[str, Any]]) -> None:
+        """Fire peplink_local_new_client for each MAC never seen before.
+
+        The very first poll after the integration is added only records the
+        clients already on the network; nothing is announced for them.
+        """
+        current = client_util.macs(client_list)
+        if self._known_macs is None:
+            self._known_macs = current
+        else:
+            new = current - self._known_macs
+            if not new:
+                return
+            for client in client_list:
+                mac = client.get("mac")
+                if client_util.is_mac(mac) and client_util.norm_mac(mac) in new:
+                    self.hass.bus.async_fire(
+                        EVENT_NEW_CLIENT,
+                        {
+                            "config_entry_id": self.config_entry.entry_id,
+                            "mac": client_util.norm_mac(mac),
+                            "name": client_util.client_name(client),
+                            "ip": client.get("ip"),
+                            "connection_type": client.get("connectionType"),
+                            "ssid": client.get("essid"),
+                        },
+                    )
+            self._known_macs |= new
+        self._client_store.async_delay_save(
+            lambda: {"macs": sorted(self._known_macs or [])}, 10
+        )
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via API."""
@@ -214,6 +266,8 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not traffic_stats:
                 raise UpdateFailed("Failed to get traffic statistics")
                 
+            self._announce_new_clients(clients.get("client", []))
+
             # Update model and firmware information if available
             device_info_data = device_info.get("device_info", {})
             if device_info_data:

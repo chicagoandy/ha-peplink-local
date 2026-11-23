@@ -27,10 +27,11 @@
     "step": {
       "init": {
         "title": "Configure Peplink Router",
-        "description": "Update your Peplink router integration settings.",
+        "description": "Configure options for the Peplink integration. Pick the clients you want a device tracker for (for example phones for presence, or devices with no integration of their own). All connected clients are always listed in the Connected Clients sensor.",
         "data": {
-          "verify_ssl": "Verify SSL Certificate",
-          "poll_frequency": "Polling Frequency"
+          "verify_ssl": "Verify SSL certificate",
+          "poll_frequency": "Polling frequency (seconds)",
+          "tracked_clients": "Clients to track"
         }
       }
     }

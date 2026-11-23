@@ -16,7 +16,7 @@ from homeassistant.util import dt as dt_util
 from . import wan_data, wifi
 from .const import DOMAIN
 from .devices import wan_device_info
-from .entity_base import PeplinkControlEntity
+from .entity_base import PeplinkControlEntity, async_join_chosen_network
 
 
 async def async_setup_entry(
@@ -148,50 +148,19 @@ class PeplinkWifiScanButton(PeplinkControlEntity, ButtonEntity):
 
 
 class PeplinkWifiJoinButton(PeplinkControlEntity, ButtonEntity):
-    """Join the network chosen in the Network select (open or saved networks)."""
+    """Join the network chosen in Network (with the Password, if one is needed)."""
+
+    _requires_enabled_wan = True
 
     _attr_name = "Join"
     _attr_icon = "mdi:wifi-arrow-right"
-
-    _requires_enabled_wan = True
 
     def __init__(self, coordinator: Any, conn: dict[str, Any]) -> None:
         super().__init__(coordinator, str(conn.get("id")), "wifi_join")
         self._attr_device_info = wan_device_info(coordinator, conn)
 
     async def async_press(self) -> None:
-        wan_id = self._wan_id
-        ssid = self.coordinator.wifi_selected.get(wan_id)
-        if not ssid:
-            raise HomeAssistantError("Pick a network in the Network list first")
-        net = wifi.find(self.coordinator.wifi_networks.get(wan_id, []), ssid)
-        saved = wifi.find(self.coordinator.wifi_saved.get(wan_id, []), ssid)
-        if saved is None and wifi.needs_password(net):
-            # Saved networks are per Wi-Fi WAN on Peplink routers.
-            elsewhere = [
-                conn.get("name") or f"WAN {conn.get('id')}"
-                for conn in (self.coordinator.data or {}).get("wan_status", {}).get("connection", [])
-                if str(conn.get("id")) != wan_id
-                and wifi.find(self.coordinator.wifi_saved.get(str(conn.get("id")), []), ssid)
-            ]
-            hint = (
-                f" It is saved on {', '.join(elsewhere)}, but each Wi-Fi WAN keeps its own"
-                " saved networks, so this one needs the password once."
-                if elsewhere else ""
-            )
-            raise HomeAssistantError(
-                f"'{ssid}' is secured and not saved on this WAN: type its password in Join with Password.{hint}"
-            )
-
-        async def join() -> None:
-            await self.coordinator.api.wifi_connect(
-                wan_id, ssid, None, net.get("security") if net else None
-            )
-            self.coordinator.watch_wifi_result(wan_id)
-            await self.coordinator.async_refresh_wifi_saved()
-
-        await self._run(join, f"join '{ssid}' on WAN {wan_id}")
-
+        await async_join_chosen_network(self)
 
 class PeplinkWifiForgetButton(PeplinkControlEntity, ButtonEntity):
     """Delete the network chosen in the Network select from the router.

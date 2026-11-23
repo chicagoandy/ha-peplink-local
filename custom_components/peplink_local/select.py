@@ -139,6 +139,8 @@ class PeplinkWifiNetworkSelect(PeplinkControlEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         if option == NO_SCAN_YET:
             return
+        if self.coordinator.wifi_selected.get(self._wan_id) != option:
+            self.coordinator.wifi_pending_password.pop(self._wan_id, None)
         self.coordinator.wifi_selected[self._wan_id] = option
         self.async_write_ha_state()
 

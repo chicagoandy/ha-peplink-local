@@ -180,7 +180,7 @@ class PeplinkWifiJoinButton(PeplinkControlEntity, ButtonEntity):
                 if elsewhere else ""
             )
             raise HomeAssistantError(
-                f"'{ssid}' is secured and not saved on this WAN: use Join with password.{hint}"
+                f"'{ssid}' is secured and not saved on this WAN: type its password in Join with Password.{hint}"
             )
 
         async def join() -> None:

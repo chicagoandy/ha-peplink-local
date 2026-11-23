@@ -161,7 +161,7 @@ async def _async_replace_admin_login(
     if not await admin.connect():
         raise ConfigEntryNotReady("Router not reachable to create its API client")
     try:
-        client_id, client_secret = await admin.create_api_client(API_CLIENT_NAME)
+        client_id, client_secret = await admin.get_or_create_api_client(API_CLIENT_NAME)
     except PeplinkCommandError as err:
         raise ConfigEntryAuthFailed(f"Could not create an API client: {err}") from err
     finally:

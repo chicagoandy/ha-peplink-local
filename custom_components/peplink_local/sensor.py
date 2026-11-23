@@ -1,6 +1,7 @@
 """Support for Peplink sensors."""
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 import logging
 from typing import Any, Callable
@@ -70,10 +71,28 @@ class PeplinkBinarySensorEntityDescription(BinarySensorEntityDescription):
     icon: str | None = None
 
 
-uptime_to_stable_datetime = ignore_variance(
-    lambda value: dt_util.utcnow() - datetime.timedelta(seconds=value),
-    datetime.timedelta(minutes=1),
-)
+def _make_up_since() -> Callable[[Any], datetime.datetime | None]:
+    """Per-entity 'up since' converter.
+
+    The router reports uptime in whole seconds while we poll every few
+    seconds, so now() - uptime wobbles by a second or two. ignore_variance
+    keeps the previous timestamp unless it moves by more than a minute. Each
+    sensor needs its own instance: a shared one keeps being overwritten by
+    the other WANs' values, so the state changed on every poll.
+    A WAN that is down reports uptime 0: no timestamp then.
+    """
+    stable = ignore_variance(
+        lambda value: dt_util.utcnow() - datetime.timedelta(seconds=value),
+        datetime.timedelta(minutes=1),
+    )
+
+    def convert(uptime: Any) -> datetime.datetime | None:
+        if not isinstance(uptime, (int, float)) or uptime <= 0:
+            return None
+        return stable(uptime)
+
+    return convert
+
 
 SENSOR_TYPES: tuple[PeplinkSensorEntityDescription, ...] = (
     # System sensors
@@ -214,11 +233,9 @@ SENSOR_TYPES: tuple[PeplinkSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TIMESTAMP,
         state_class=None,
         # Calculate the "up since" timestamp by subtracting uptime from current time
-        value_fn=lambda x: (
-            uptime_to_stable_datetime(x.get("uptime"))
-            if x.get("uptime") is not None
-            else None
-        ),
+        # Placeholder: PeplinkWANSensor gives each Up Since sensor its own
+        # converter (see _make_up_since).
+        value_fn=lambda x: x.get("uptime"),
         icon="mdi:clock-start",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
@@ -752,6 +769,11 @@ class PeplinkWANSensor(CoordinatorEntity, SensorEntity):
 
         self.entity_description = description
         self._wan_id = str(wan_id)
+        if description.key == "up_since":
+            up_since = _make_up_since()
+            self.entity_description = dataclasses.replace(
+                description, value_fn=lambda x: up_since(x.get("uptime"))
+            )
         # Keep reference to initial data
         self._initial_sensor_data = sensor_data
         

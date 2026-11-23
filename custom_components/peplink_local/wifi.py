@@ -12,13 +12,27 @@ from typing import Any
 # Scan "securityPolicy" -> connect "security.policy.type".
 # wpa-psk maps to the WPA2/WPA3 transition type, which joins WPA2-only and
 # WPA3 access points alike (it is what the router uses for its own profiles).
+# Scan values seen on fw 8.5.2 go beyond the documented list: besides
+# open/wep/wpa-psk/wpa-eap/8021x the router reports wpa23-psk (WPA2/WPA3
+# transition), wpa3-psk and plain "wpa".
 SECURITY_TYPES = {
     "open": "Open",
     "wep": "WEP",
     "wpa-psk": "WPA2/WPA3-Personal",
     "wpapsk": "WPA2/WPA3-Personal",
+    "wpa23-psk": "WPA2/WPA3-Personal",
+    "wpa3-psk": "WPA3-Personal",
+    "wpa": "WPA/WPA2-Personal",
 }
 ENTERPRISE_POLICIES = {"wpa-eap", "8021x"}
+
+# cmd.wifi.forget only documents open, wep, wpa-eap, wpa-psk and 8021x.
+FORGET_POLICY = {
+    "wpapsk": "wpa-psk",
+    "wpa23-psk": "wpa-psk",
+    "wpa3-psk": "wpa-psk",
+    "wpa": "wpa-psk",
+}
 
 RESULT_TEXT = {
     "CONNECTED": "Connected",
@@ -53,6 +67,8 @@ def networks(scan: Any) -> list[dict[str, Any]]:
             "channel": ap.get("channel"),
             "security": ap.get("securityPolicy"),
             "saved": bool((ap.get("config") or {}).get("profileId")),
+            # Only reported with infoType=status; the platforms override it
+            # from the WAN's current SSID.
             "connected": bool((ap.get("status") or {}).get("connected")),
             "bssid": ap.get("bssid"),
         }
@@ -150,7 +166,13 @@ def saved_networks(wan_config: dict[str, Any] | None) -> list[dict[str, Any]]:
 def policy_for(saved: dict[str, Any] | None, scanned: dict[str, Any] | None) -> str:
     """securityPolicy to use for cmd.wifi.forget."""
     if scanned and scanned.get("security"):
-        return scanned["security"]
+        policy = str(scanned["security"]).lower()
+        return FORGET_POLICY.get(policy, policy)
     if saved and saved.get("security"):
         return POLICY_FOR_TYPE.get(str(saved["security"]).lower(), "wpa-psk")
     return "wpa-psk"
+
+
+def mark_connected(nets: list[dict[str, Any]], ssid: str | None) -> list[dict[str, Any]]:
+    """Copy of nets with 'connected' set from the WAN's current SSID."""
+    return [{**n, "connected": bool(ssid) and n["ssid"] == ssid} for n in nets]

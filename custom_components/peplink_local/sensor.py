@@ -916,11 +916,15 @@ class PeplinkWifiNetworksSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         scanned = self.coordinator.wifi_scanned_at.get(self._wan_id)
+        current_ssid = None
+        for conn in (self.coordinator.data or {}).get("wan_status", {}).get("connection", []):
+            if str(conn.get("id")) == self._wan_id and str(conn.get("message", "")).startswith("Connected"):
+                current_ssid = wan_data.wifi(conn).get("ssid")
+        nets = wifi_util.mark_connected(
+            self.coordinator.wifi_networks.get(self._wan_id, []), current_ssid
+        )
         return {
-            "networks": [
-                {k: v for k, v in n.items() if k != "bssid"}
-                for n in self.coordinator.wifi_networks.get(self._wan_id, [])
-            ],
+            "networks": [{k: v for k, v in n.items() if k != "bssid"} for n in nets],
             "last_scan": scanned.isoformat() if scanned else None,
         }
 

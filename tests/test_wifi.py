@@ -78,3 +78,20 @@ def test_policy_for_and_result_text():
     assert wifi.result_text({"result": "PSK_AUTH_FAIL"}) == "Wrong password"
     assert wifi.result_text({"result": "SOMETHING_NEW"}) == "SOMETHING_NEW"
     assert wifi.result_text(None) is None
+
+
+def test_undocumented_security_values_seen_on_8_5_2():
+    # Real scan values from a MAX BR1 Mini on 8.5.2s150.
+    assert wifi.connect_body(4, "A", "pw", "wpa23-psk")["security"]["policy"]["type"] == "WPA2/WPA3-Personal"
+    assert wifi.connect_body(4, "B", "pw", "wpa3-psk")["security"]["policy"]["type"] == "WPA3-Personal"
+    assert wifi.connect_body(4, "C", "pw", "wpa")["security"]["policy"]["type"] == "WPA/WPA2-Personal"
+    for policy in ("wpa23-psk", "wpa3-psk", "wpa", "wpa-psk"):
+        assert wifi.policy_for(None, {"security": policy}) == "wpa-psk"
+    assert wifi.policy_for(None, {"security": "open"}) == "open"
+
+
+def test_mark_connected():
+    nets = wifi.networks(SCAN)
+    marked = wifi.mark_connected(nets, "Home")
+    assert [n["connected"] for n in marked] == [False, True, False]
+    assert all(not n["connected"] for n in wifi.mark_connected(nets, None))

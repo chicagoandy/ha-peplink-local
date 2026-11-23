@@ -8,7 +8,7 @@ Monitor and control a Peplink / Pepwave router from Home Assistant over its loca
 
 > **Origin:** Peplink Router began as a fork of [Peplink Local](https://github.com/weirded/ha-peplink-local) by Stefan Zier (Apache 2.0, see [NOTICE](NOTICE)) and is now developed separately. It uses its own integration domain (`peplink_router`), so it can be installed alongside or instead of Peplink Local without clashing.
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chicagoandy&repository=Peplink-Router&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chicagoandy&repository=ha-peplink-router&category=integration)
 
 ## Features
 
@@ -75,14 +75,14 @@ Peplink Router is a separate integration. Remove Peplink Local first (Settings â
 1. Ensure [HACS](https://hacs.xyz/) is installed in your Home Assistant instance
 2. Add this repository as a custom repository in HACS:
    - Go to HACS > Integrations > â‹® > Custom repositories
-   - Add `https://github.com/chicagoandy/Peplink-Router` as a repository
+   - Add `https://github.com/chicagoandy/ha-peplink-router` as a repository
    - Select "Integration" as the category
 3. Click "Install" on the Peplink Router integration
 4. Restart Home Assistant
 
 ### Manual Installation
 
-1. Download the latest release from the [GitHub repository](https://github.com/chicagoandy/Peplink-Router)
+1. Download the latest release from the [GitHub repository](https://github.com/chicagoandy/ha-peplink-router)
 2. Extract the `custom_components/peplink_router` directory into your Home Assistant's `custom_components` directory
 3. Restart Home Assistant
 
@@ -108,12 +108,12 @@ The GPS tracking features are automatically enabled when your Peplink router has
 
 ## Contributing
 
-Contributions to improve the integration are welcome! Please feel free to submit a pull request or open an issue on the [GitHub repository](https://github.com/chicagoandy/Peplink-Router).
+Contributions to improve the integration are welcome! Please feel free to submit a pull request or open an issue on the [GitHub repository](https://github.com/chicagoandy/ha-peplink-router).
 
 ## License
 
 This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
 
-[releases-shield]: https://img.shields.io/github/v/release/chicagoandy/Peplink-Router?include_prereleases&style=for-the-badge
-[releases]: https://github.com/chicagoandy/Peplink-Router/releases
-[license-shield]: https://img.shields.io/github/license/chicagoandy/Peplink-Router.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/v/release/chicagoandy/ha-peplink-router?include_prereleases&style=for-the-badge
+[releases]: https://github.com/chicagoandy/ha-peplink-router/releases
+[license-shield]: https://img.shields.io/github/license/chicagoandy/ha-peplink-router.svg?style=for-the-badge

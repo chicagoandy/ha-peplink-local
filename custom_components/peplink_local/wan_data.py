@@ -113,3 +113,23 @@ def priority(conn: dict[str, Any]) -> int | None:
     """Priority group (1 = highest). The router omits it for disabled WANs."""
     value = conn.get("priority")
     return value if isinstance(value, int) else None
+
+
+_TYPE_LABELS = {
+    "modem": "Modem",
+    "wireless": "WiFi",
+    "wifi": "WiFi",
+    "gobi": "Cellular",
+    "cellular": "Cellular",
+    "ipsec": "IPSec VPN",
+    "adsl": "ADSL",
+    "ethernet": "Ethernet",
+    "wovlan": "VLAN",
+}
+
+
+def type_label(value: str | None) -> str | None:
+    """Readable WAN type, e.g. 'cellular' -> 'Cellular'."""
+    if not value:
+        return None
+    return _TYPE_LABELS.get(str(value).lower(), str(value))

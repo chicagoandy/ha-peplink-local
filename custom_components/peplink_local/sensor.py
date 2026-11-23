@@ -43,6 +43,7 @@ from homeassistant.config_entries import ConfigEntry
 from . import PeplinkDataUpdateCoordinator
 from .const import DOMAIN
 from . import wan_data
+from .devices import wan_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -517,7 +518,6 @@ async def async_setup_entry(
         str(stat.get("wan_id")): stat
         for stat in coordinator.data.get("traffic_stats", {}).get("stats", [])
     }
-    router_name = coordinator.device_name or "Peplink"
 
     def _wan_copy(description: PeplinkSensorEntityDescription, key: str) -> PeplinkSensorEntityDescription:
         return PeplinkSensorEntityDescription(
@@ -536,14 +536,7 @@ async def async_setup_entry(
 
     for wan_connection in wan_connections:
         wan_id = str(wan_connection.get("id"))
-        wan_name = wan_connection.get("name") or f"WAN{wan_id}"
-        device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.config_entry.entry_id}_wan{wan_id}")},
-            manufacturer="Peplink",
-            model=f"WAN {wan_id} ({_translate_wan_type(wan_connection.get('type')) or 'WAN'})",
-            name=f"{router_name} {wan_name}",
-            via_device=(DOMAIN, coordinator.config_entry.entry_id),
-        )
+        device_info = wan_device_info(coordinator, wan_connection)
 
         def _add(description: PeplinkSensorEntityDescription, data: dict) -> None:
             entities.append(
@@ -842,20 +835,6 @@ class PeplinkWANSensor(CoordinatorEntity, SensorEntity):
         return self._extra_attrs
 
 
-def _translate_wan_type(wan_type: str) -> str:
+def _translate_wan_type(wan_type: str) -> str | None:
     """Translate WAN type to more user-friendly format."""
-    if not wan_type:
-        return None
-        
-    type_map = {
-        "modem": "Modem",
-        "wireless": "Wireless",
-        "gobi": "Cellular",
-        "cellular": "Cellular",
-        "ipsec": "IPSec VPN",
-        "adsl": "ADSL",
-        "wifi": "WiFi",
-        "ethernet": "Ethernet"
-    }
-    
-    return type_map.get(wan_type.lower(), wan_type)
+    return wan_data.type_label(wan_type)

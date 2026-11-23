@@ -97,7 +97,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             model_string = f"{model_string} (HW {coordinator.hardware_revision})"
         
         device_registry = dr.async_get(hass)
-        device_registry.async_get_or_create(
+        router_device = device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
             identifiers={(DOMAIN, entry.entry_id)},
             name=device_name,
@@ -106,6 +106,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             serial_number=coordinator.serial_number,
             sw_version=coordinator.firmware,
         )
+
+        # WAN sub-devices link to the router through its registry ID.
+        coordinator.router_device_id = router_device.id
 
         await _async_migrate_unique_ids(hass, entry, coordinator)
 
@@ -166,6 +169,7 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.serial_number = None  # Can be updated later if the API provides serial number
         self.product_code = None  # Can be updated later if the API provides product code
         self.hardware_revision = None  # Can be updated later if the API provides hardware revision
+        self.router_device_id: str | None = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via API."""

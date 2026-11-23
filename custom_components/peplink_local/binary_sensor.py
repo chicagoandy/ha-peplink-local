@@ -18,6 +18,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import PeplinkDataUpdateCoordinator
 from .const import DOMAIN
+from .devices import wan_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,25 +57,15 @@ async def async_setup_entry(
     
     # Add binary sensors for each WAN connection
     for connection in wan_connections:
-        wan_id = connection.get("id", "")
+        wan_id = str(connection.get("id", ""))
         wan_name = connection.get("name", f"WAN {wan_id}")
         
         # Skip disabled WANs
         if connection.get("enable") is False:
             continue
             
-        # Use the device name from API if available, otherwise fallback to IP
-        device_name = coordinator.device_name or f"Peplink {coordinator.host}"
-            
-        # Create device info for this WAN
-        device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.config_entry.entry_id}_wan{wan_id}")},
-            manufacturer="Peplink",
-            model="WAN Connection",
-            name=f"{device_name} WAN{wan_id}",
-            via_device=(DOMAIN, coordinator.config_entry.entry_id),
-        )
-        
+        device_info = wan_device_info(coordinator, connection)
+
         # Add all binary sensors
         for description in BINARY_SENSOR_TYPES:
             entities.append(

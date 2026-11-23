@@ -106,6 +106,10 @@ class PeplinkWANButton(PeplinkControlEntity, ButtonEntity):
         spec = _WAN_BUTTONS[kind]
         self._kind = kind
         self._requires_enabled_wan = kind == "wifi_disconnect"
+        if kind == "wifi_disconnect":
+            # Everyday Wi-Fi action: list it under Controls with Scan/Join/Forget
+            # rather than under Configuration.
+            self._attr_entity_category = None
         self._attr_name = spec["name"]
         self._attr_icon = spec["icon"]
         self._attr_device_class = spec["device_class"]

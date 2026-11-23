@@ -12,9 +12,19 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .const import DOMAIN, CONF_POLL_FREQUENCY, CONF_TRACKED_CLIENTS, DEFAULT_POLL_FREQUENCY
 from . import clients as client_util
+from . import wan_data, wifi as wifi_util
 from .peplink_api import PeplinkAPI, PeplinkAuthFailed, PeplinkSSLError
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,7 +146,120 @@ class PeplinkLocalOptionsFlowHandler(config_entries.OptionsFlow):
         self.entry = config_entry
 
     async def async_step_init(self, user_input=None):
-        """Manage the options."""
+        """Configure opens a menu: settings, or join a Wi-Fi network."""
+        if self._wifi_wans():
+            return self.async_show_menu(step_id="init", menu_options=["settings", "join_wifi"])
+        return await self.async_step_settings()
+
+    # ---- Join a Wi-Fi network --------------------------------------------
+
+    def _coordinator(self):
+        return self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("coordinator")
+
+    def _wifi_wans(self) -> dict[str, str]:
+        """Enabled Wi-Fi WANs: id -> name."""
+        coordinator = self._coordinator()
+        if coordinator is None or not coordinator.data:
+            return {}
+        return {
+            str(conn.get("id")): conn.get("name") or f"WAN {conn.get('id')}"
+            for conn in coordinator.data.get("wan_status", {}).get("connection", [])
+            if wan_data.is_wifi(conn) and conn.get("enable")
+        }
+
+    async def async_step_join_wifi(self, user_input=None):
+        """Pick a network (scanned, saved, or typed) and give its password.
+
+        The password goes straight to the router; nothing is stored in Home
+        Assistant (options flows are neither saved nor traced).
+        """
+        coordinator = self._coordinator()
+        wans = self._wifi_wans()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            wan_id = user_input.get("wan") or next(iter(wans))
+            ssid = (user_input.get("network") or "").strip()
+            password = user_input.get("password") or None
+            scanned = wifi_util.find(coordinator.wifi_networks.get(wan_id, []), ssid)
+            saved = wifi_util.find(coordinator.wifi_saved.get(wan_id, []), ssid)
+            if not ssid:
+                errors["network"] = "network_required"
+            elif not password and saved is None and wifi_util.needs_password(scanned):
+                errors["password"] = "password_required"
+            else:
+                try:
+                    await coordinator.api.wifi_connect(
+                        wan_id, ssid, password, scanned.get("security") if scanned else None
+                    )
+                except ValueError:
+                    errors["base"] = "enterprise_not_supported"
+                except Exception as err:  # router rejected it / unreachable
+                    _LOGGER.warning("Joining %s failed: %s", ssid, err)
+                    errors["base"] = "join_failed"
+                else:
+                    coordinator.wifi_selected[wan_id] = ssid
+                    coordinator.watch_wifi_result(wan_id)
+                    await coordinator.async_refresh_wifi_saved()
+                    await coordinator.async_request_refresh()
+                    return self.async_abort(
+                        reason="join_started",
+                        description_placeholders={"ssid": ssid, "wan": wans.get(wan_id, wan_id)},
+                    )
+
+        # Network choices: scanned (strongest first, with signal), then saved.
+        options: list[SelectOptionDict] = []
+        seen: set[str] = set()
+        for wan_id in wans:
+            for net in coordinator.wifi_networks.get(wan_id, []):
+                if net["ssid"] in seen:
+                    continue
+                seen.add(net["ssid"])
+                bits = [f"{net['signal_dbm']} dBm" if net.get("signal_dbm") is not None else None,
+                        "open" if net.get("security") == "open" else "secured",
+                        "saved" if wifi_util.find(coordinator.wifi_saved.get(wan_id, []), net["ssid"]) else None]
+                options.append(SelectOptionDict(
+                    value=net["ssid"], label=f"{net['ssid']} ({', '.join(b for b in bits if b)})"))
+            for net in coordinator.wifi_saved.get(wan_id, []):
+                if net["ssid"] not in seen:
+                    seen.add(net["ssid"])
+                    options.append(SelectOptionDict(value=net["ssid"], label=f"{net['ssid']} (saved, not in range)"))
+
+        schema: dict = {}
+        if len(wans) > 1:
+            schema[vol.Required("wan", default=next(iter(wans)))] = SelectSelector(
+                SelectSelectorConfig(
+                    options=[SelectOptionDict(value=k, label=v) for k, v in wans.items()],
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            )
+        default_ssid = next(
+            (coordinator.wifi_selected.get(w) for w in wans if coordinator.wifi_selected.get(w)), None
+        )
+        network_key = (
+            vol.Required("network", default=default_ssid) if default_ssid else vol.Required("network")
+        )
+        schema[network_key] = SelectSelector(
+            SelectSelectorConfig(options=options, custom_value=True, mode=SelectSelectorMode.DROPDOWN)
+        )
+        schema[vol.Optional("password")] = TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        )
+        scanned_any = any(coordinator.wifi_networks.get(w) for w in wans)
+        return self.async_show_form(
+            step_id="join_wifi",
+            data_schema=vol.Schema(schema),
+            errors=errors,
+            description_placeholders={
+                "scan_hint": "" if scanned_any else
+                "No scan yet: press the WAN's Scan Networks button first to list nearby networks, or type a network name.",
+            },
+        )
+
+    # ---- Settings ---------------------------------------------------------
+
+    async def async_step_settings(self, user_input=None):
+        """Polling, SSL and which clients to track."""
         if user_input is not None:
             # Update the options
             return self.async_create_entry(title="", data=user_input)
@@ -158,7 +281,7 @@ class PeplinkLocalOptionsFlowHandler(config_entries.OptionsFlow):
             choices.setdefault(mac, f"{mac} (not connected)")
 
         return self.async_show_form(
-            step_id="init",
+            step_id="settings",
             data_schema=vol.Schema(
                 {
                     vol.Optional(

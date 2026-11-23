@@ -25,14 +25,39 @@
   "options": {
     "step": {
       "init": {
-        "title": "Peplink Options",
+        "title": "Peplink",
+        "menu_options": {
+          "settings": "Settings",
+          "join_wifi": "Join Wi-Fi network"
+        }
+      },
+      "settings": {
+        "title": "Peplink settings",
         "description": "Configure options for the Peplink integration. Pick the clients you want a device tracker for (for example phones for presence, or devices with no integration of their own). All connected clients are always listed in the Connected Clients sensor.",
         "data": {
           "verify_ssl": "Verify SSL certificate",
           "poll_frequency": "Polling frequency (seconds)",
           "tracked_clients": "Clients to track"
         }
+      },
+      "join_wifi": {
+        "title": "Join Wi-Fi network",
+        "description": "Joins a network on a Wi-Fi WAN. Pick a network found by the last scan or a saved one, or type a name. Leave the password empty for open and saved networks. The password goes straight to the router, which saves it; Home Assistant keeps no copy. Joining replaces the WAN's current Wi-Fi connection. {scan_hint}",
+        "data": {
+          "wan": "Wi-Fi WAN",
+          "network": "Network",
+          "password": "Password"
+        }
       }
+    },
+    "error": {
+      "network_required": "Pick or type a network name.",
+      "password_required": "This network is secured and not saved on the router: enter its password.",
+      "enterprise_not_supported": "Enterprise (802.1x / WPA-EAP) networks must be joined from the router's web page.",
+      "join_failed": "The router rejected the request. Check the log for details."
+    },
+    "abort": {
+      "join_started": "Joining {ssid} on {wan}. This takes up to a minute: the WAN's Last Join Result sensor shows Connected, Wrong password, Network not found or Timed out."
     }
   },
   "entity": {

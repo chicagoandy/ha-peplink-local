@@ -191,6 +191,8 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._documented_firmware: str | None = None
         self._modem_temps: dict[str, float] = {}
         self._modem_temps_at: float | None = None
+        self._system_info: dict[str, Any] = {}
+        self._system_info_at: float | None = None
         # MACs seen before, persisted so restarts don't re-announce them.
         self._client_store: Store = Store(
             hass, 1, f"{DOMAIN}.{config_entry.entry_id}.known_clients"
@@ -337,10 +339,20 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # and the undocumented web-UI calls for system info and traffic,
             # which have no documented equivalent. A failed optional call only
             # empties its own sensors.
+            # System info (model, serial, name, temperature, fans) changes
+            # rarely: read it hourly, retry after 5 min if it fails.
+            now = time.monotonic()
+            system_info_due = (
+                self._system_info_at is None or now - self._system_info_at > 3600
+            )
+
+            async def _cached_system_info() -> dict[str, Any]:
+                return self._system_info
+
             results = await asyncio.gather(
                 self.api.get_wan_status(),
                 self.api.get_clients(),
-                self.api.get_system_info(),
+                self.api.get_system_info() if system_info_due else _cached_system_info(),
                 self.api.get_traffic_stats(),
                 self.api.get_location(),
                 return_exceptions=True,
@@ -356,6 +368,12 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 clients = {"client": []}
 
             system_info = self._optional("system information", system_info, {})
+            if system_info_due:
+                if system_info:
+                    self._system_info = system_info
+                    self._system_info_at = now
+                else:
+                    self._system_info_at = now - 3600 + 300
             traffic_stats = self._optional("traffic statistics", traffic_stats, {"stats": []})
             location_info = self._optional(
                 "location", location_info, {"gps": False, "type": "Unknown", "location": {}}

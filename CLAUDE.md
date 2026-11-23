@@ -41,7 +41,7 @@ Test output (raw JSON responses from each API endpoint) is saved to `tests/outpu
 The coordinator calls five API methods in parallel via `asyncio.gather`:
 1. `get_wan_status()` → WAN connection info
 2. `get_clients()` → connected client devices
-3. `get_system_info()` → combined call returning device info, thermal sensors, fan speeds, system time
+3. `get_system_info()` → combined call returning device info, thermal sensors, fan speeds, system time (hourly; cached between reads, retried after 5 min on failure)
 4. `get_traffic_stats()` → per-WAN bandwidth rates
 5. `get_location()` → GPS data from documented `/api/info.location` (returns `gps: false` if the router has no GPS)
 

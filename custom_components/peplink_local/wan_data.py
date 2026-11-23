@@ -133,3 +133,15 @@ def type_label(value: str | None) -> str | None:
     if not value:
         return None
     return _TYPE_LABELS.get(str(value).lower(), str(value))
+
+
+def is_starlink(conn: dict[str, Any]) -> bool:
+    """Best guess at a Starlink WAN: the API has no explicit flag.
+
+    True when the router reports a Starlink object for the WAN, or the WAN is
+    an Ethernet WAN whose name mentions Starlink (the Peplink default name for
+    a detected dish is 'Starlink').
+    """
+    if conn.get("starlink"):
+        return True
+    return wan_type(conn) == "ethernet" and "starlink" in str(conn.get("name") or "").lower()

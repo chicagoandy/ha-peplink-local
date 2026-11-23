@@ -39,6 +39,12 @@ This custom integration allows you to monitor and track your Peplink router from
   - WAN Upload (data rate sensor)
   - Total Download (data rate sensor)
   - Total Upload (data rate sensor)
+- **Controls** (they change the router's configuration):
+  - **Enabled** switch per WAN (`config.wan.connection`, then apply)
+  - **Routing Mode** select per WAN: NAT or IP Forwarding (then apply)
+  - **Reset Cellular Module** and **Rescan Cellular Network** buttons for cellular WANs
+  - **Reboot** button for the router
+  - **Reboot / Stow / Unstow Starlink** buttons for a WAN named "Starlink" (firmware 8.5.0+, needs a Care Plan)
 - **Configurable Polling**: Adjust how frequently the integration polls your router (default: 5 seconds)
 
 ## Requirements

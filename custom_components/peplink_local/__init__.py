@@ -37,7 +37,14 @@ from .peplink_api import PeplinkAPI, PeplinkAuthFailed
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.DEVICE_TRACKER, Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.DEVICE_TRACKER,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -346,3 +353,9 @@ async def _async_migrate_unique_ids(
         return {"new_unique_id": new}
 
     await er.async_migrate_entries(hass, entry_id, _migrate)
+
+    # 0.4.0 beta: routing mode moved from a read-only sensor to a select.
+    registry = er.async_get(hass)
+    for entity_entry in er.async_entries_for_config_entry(registry, entry_id):
+        if entity_entry.domain == "sensor" and entity_entry.unique_id.endswith("_routing_mode"):
+            registry.async_remove(entity_entry.entity_id)

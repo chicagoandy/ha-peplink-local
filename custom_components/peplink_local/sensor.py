@@ -318,14 +318,7 @@ WAN_STATUS_SENSOR_TYPES: tuple[PeplinkSensorEntityDescription, ...] = (
         value_fn=wan_data.priority,  # None (unknown) while the WAN is disabled
         icon="mdi:sort-numeric-ascending",
     ),
-    PeplinkSensorEntityDescription(
-        key="routing_mode",
-        name="Routing Mode",
-        value_fn=wan_data.routing_mode,
-        icon="mdi:swap-horizontal",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        require_value=True,
-    ),
+    # Routing mode is a select (select.py), so it can be changed.
     # WiFi WAN sensors (descriptions above, were never created before)
     *(d for d in SENSOR_TYPES if d.key.startswith("wifi_")),
     # Cellular

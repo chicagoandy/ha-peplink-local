@@ -152,3 +152,79 @@ async def test_location(api: PeplinkAPI) -> None:
     assert loc["gps"] is True
     assert loc["location"]["latitude"] == 40.0
     assert loc["location"]["longitude"] == -75.0
+
+
+# ---------------------------------------------------------------------------
+# Commands and configuration changes
+# ---------------------------------------------------------------------------
+
+from peplink_api import PeplinkCommandError  # noqa: E402
+
+
+def posted(m: aioresponses, path: str) -> list[dict]:
+    """JSON bodies POSTed to /api/<path>."""
+    from yarl import URL
+
+    calls = m.requests.get(("POST", URL(f"{BASE}/api/{path}")), [])
+    return [call.kwargs.get("json") for call in calls]
+
+
+async def test_set_wan_enabled_posts_and_applies(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.post(f"{BASE}/api/config.wan.connection", payload={"stat": "ok", "response": {}})
+        m.post(f"{BASE}/api/cmd.config.apply", payload={"stat": "ok"})
+        await api.connect()
+        await api.set_wan_enabled("3", True)
+        assert posted(m, "config.wan.connection") == [
+            {"action": "update", "list": [{"id": 3, "enable": True}]}
+        ]
+        assert len(posted(m, "cmd.config.apply")) == 1
+
+
+async def test_set_routing_mode_posts_and_applies(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.post(f"{BASE}/api/config.wan.connection", payload={"stat": "ok", "response": {}})
+        m.post(f"{BASE}/api/cmd.config.apply", payload={"stat": "ok"})
+        await api.connect()
+        await api.set_wan_routing_mode(4, "NAT")
+        assert posted(m, "config.wan.connection") == [
+            {"action": "update", "list": [{"id": 4, "connection": {"routingMode": "NAT"}}]}
+        ]
+        assert len(posted(m, "cmd.config.apply")) == 1
+
+
+async def test_routing_mode_rejects_unknown_value(api: PeplinkAPI) -> None:
+    with pytest.raises(ValueError):
+        await api.set_wan_routing_mode(4, "Bridge")
+
+
+async def test_failed_change_raises_and_skips_apply(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.post(f"{BASE}/api/config.wan.connection",
+               payload={"stat": "fail", "code": 400, "message": "Invalid id"})
+        await api.connect()
+        with pytest.raises(PeplinkCommandError, match="Invalid id"):
+            await api.set_wan_enabled(9, False)
+        assert posted(m, "cmd.config.apply") == []
+
+
+async def test_one_shot_commands(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        for path in ("cmd.cellularModule.reset", "cmd.cellularModule.rescanNetwork",
+                     "cmd.system.reboot", "cmd.starlink"):
+            m.post(f"{BASE}/api/{path}", payload={"stat": "ok"}, repeat=True)
+        await api.connect()
+        await api.reset_cellular_module("2")
+        await api.rescan_cellular_network(2)
+        await api.reboot()
+        await api.starlink_command(1, "stow")
+        assert posted(m, "cmd.cellularModule.reset") == [{"connId": 2}]
+        assert posted(m, "cmd.cellularModule.rescanNetwork") == [{"connId": 2}]
+        assert posted(m, "cmd.system.reboot") == [{}]
+        assert posted(m, "cmd.starlink") == [{"connId": 1, "action": "stow"}]
+        with pytest.raises(ValueError):
+            await api.starlink_command(1, "launch")

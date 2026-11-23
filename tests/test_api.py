@@ -258,3 +258,37 @@ async def test_saved_wifi_from_wan_config(api: PeplinkAPI) -> None:
         await api.connect()
         config = await api.get_wan_config()
         assert "4" in config and config["4"]["wifi"]["wifiConnectionProfile"]["order"] == [2, 1]
+
+
+# ---------------------------------------------------------------------------
+# Documented endpoints first
+# ---------------------------------------------------------------------------
+
+
+async def test_location_prefers_documented_endpoint(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.get(f"{BASE}/api/info.location", payload=load(BR1_MINI, "info.location"))
+        await api.connect()
+        loc = await api.get_location()
+        assert loc["gps"] is True
+        # documented call answered, so the web-UI endpoint was not used
+        cgi_calls = [k for k in m.requests if "cgi-bin" in str(k[1]) and "info.location" in str(k[1])]
+        assert cgi_calls == []
+
+
+async def test_location_falls_back_to_web_ui(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.get(f"{BASE}/api/info.location", payload={"stat": "fail", "code": 404, "message": "Not found"})
+        await api.connect()
+        loc = await api.get_location()
+        assert loc["gps"] is True and loc["location"]["latitude"] == 40.0
+
+
+async def test_firmware_version_from_info_firmware(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.get(f"{BASE}/api/info.firmware", payload=load(BR1_MINI, "info.firmware"))
+        await api.connect()
+        assert await api.get_firmware_version() == "8.5.2s150 build 5332"

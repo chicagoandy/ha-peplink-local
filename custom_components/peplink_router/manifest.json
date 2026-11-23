@@ -6,9 +6,9 @@
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/chicagoandy/ha-peplink-router",
+  "documentation": "https://github.com/chicagoandy/Peplink-Router",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/chicagoandy/ha-peplink-router/issues",
+  "issue_tracker": "https://github.com/chicagoandy/Peplink-Router/issues",
   "requirements": [],
   "version": "1.0.0-beta1"
 }

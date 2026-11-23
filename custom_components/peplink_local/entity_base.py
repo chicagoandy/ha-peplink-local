@@ -15,6 +15,8 @@ class PeplinkControlEntity(CoordinatorEntity):
     """A control bound to one WAN (wan_id) or to the router (wan_id None)."""
 
     _attr_has_entity_name = True
+    # Unavailable while this WAN is disabled (e.g. Wi-Fi scan/join controls).
+    _requires_enabled_wan = False
 
     def __init__(self, coordinator: Any, wan_id: str | None, key: str) -> None:
         super().__init__(coordinator)
@@ -29,6 +31,15 @@ class PeplinkControlEntity(CoordinatorEntity):
             if str(conn.get("id")) == self._wan_id:
                 return conn
         return None
+
+    @property
+    def available(self) -> bool:
+        if not super().available:
+            return False
+        if self._requires_enabled_wan:
+            conn = self._connection()
+            return bool(conn and conn.get("enable"))
+        return True
 
     async def _run(self, action: Callable[[], Awaitable[None]], what: str) -> None:
         """Run a router command, surface failures in the UI, then refresh."""

@@ -28,7 +28,7 @@ async def async_setup_entry(
         if wan_data.is_cellular(conn):
             entities.append(PeplinkWANButton(coordinator, conn, "cellular_reset"))
             entities.append(PeplinkWANButton(coordinator, conn, "cellular_rescan"))
-        if wan_data.is_wifi(conn) and conn.get("enable"):
+        if wan_data.is_wifi(conn):
             entities.append(PeplinkWifiScanButton(coordinator, conn))
             entities.append(PeplinkWifiJoinButton(coordinator, conn))
             entities.append(PeplinkWifiForgetButton(coordinator, conn))
@@ -105,6 +105,7 @@ class PeplinkWANButton(PeplinkControlEntity, ButtonEntity):
         super().__init__(coordinator, str(conn.get("id")), kind)
         spec = _WAN_BUTTONS[kind]
         self._kind = kind
+        self._requires_enabled_wan = kind == "wifi_disconnect"
         self._attr_name = spec["name"]
         self._attr_icon = spec["icon"]
         self._attr_device_class = spec["device_class"]
@@ -123,6 +124,8 @@ class PeplinkWifiScanButton(PeplinkControlEntity, ButtonEntity):
 
     _attr_name = "Scan Networks"
     _attr_icon = "mdi:wifi-refresh"
+
+    _requires_enabled_wan = True
 
     def __init__(self, coordinator: Any, conn: dict[str, Any]) -> None:
         super().__init__(coordinator, str(conn.get("id")), "wifi_scan")
@@ -145,6 +148,8 @@ class PeplinkWifiJoinButton(PeplinkControlEntity, ButtonEntity):
 
     _attr_name = "Join"
     _attr_icon = "mdi:wifi-arrow-right"
+
+    _requires_enabled_wan = True
 
     def __init__(self, coordinator: Any, conn: dict[str, Any]) -> None:
         super().__init__(coordinator, str(conn.get("id")), "wifi_join")
@@ -180,6 +185,8 @@ class PeplinkWifiForgetButton(PeplinkControlEntity, ButtonEntity):
 
     _attr_name = "Forget"
     _attr_icon = "mdi:wifi-remove"
+
+    _requires_enabled_wan = True
 
     def __init__(self, coordinator: Any, conn: dict[str, Any]) -> None:
         super().__init__(coordinator, str(conn.get("id")), "wifi_forget")

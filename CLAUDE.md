@@ -43,15 +43,15 @@ The coordinator calls five API methods in parallel via `asyncio.gather`:
 2. `get_clients()` → connected client devices
 3. `get_system_info()` → combined call returning device info, thermal sensors, fan speeds, system time
 4. `get_traffic_stats()` → per-WAN bandwidth rates
-5. `get_location()` → GPS data (returns `gps: false` if router has no GPS)
+5. `get_location()` → GPS data from documented `/api/info.location` (returns `gps: false` if the router has no GPS)
 
 All coordinator data is stored under `hass.data[DOMAIN][entry_id]["coordinator"].data` as a flat dict with keys: `wan_status`, `clients`, `thermal_sensors`, `fan_speeds`, `traffic_stats`, `device_info`, `system_time`, `location_info`.
 
 ### API Layer (peplink_api.py)
 
 Two API bases are used. Prefer the documented one wherever it has the data:
-- **Documented API**: `https://{host}/api/` — authentication (`/api/login`), WAN status, clients, GPS (`/api/info.location`, web-UI fallback), firmware version (`/api/info.firmware`), Wi-Fi WAN and configuration commands. WAN status and clients are required: if they fail, the update fails.
-- **Undocumented web-UI API**: `https://{host}/cgi-bin/MANGA/api.cgi?func=<function>&_=<timestamp>` — traffic rates (`status.traffic`) and model/serial/temperature/fans (`status.system.info`). Peplink's API docs (through firmware 8.6.0) have no equivalent. These calls are optional: a failure empties only their sensors and logs one warning (`PeplinkDataUpdateCoordinator._optional`).
+- **Documented API**: `https://{host}/api/` — authentication (`/api/login`), WAN status, clients, GPS (`/api/info.location`), firmware version (`/api/info.firmware`). Where a documented endpoint exists, the web-UI API is not used for that data, not even as a fallback, Wi-Fi WAN and configuration commands. WAN status and clients are required: if they fail, the update fails.
+- **Undocumented web-UI API**: `https://{host}/cgi-bin/MANGA/api.cgi?func=<function>&_=<timestamp>` — only for data with no documented endpoint: traffic rates (`status.traffic`) and model/serial/temperature/fans (`status.system.info`). Peplink's API docs (through firmware 8.6.0) have no equivalent. These calls are optional: a failure empties only their sensors and logs one warning (`PeplinkDataUpdateCoordinator._optional`).
 
 Authentication uses cookie-based sessions (`bauth` cookie). The `_` parameter in CGI requests is the current Unix timestamp in milliseconds.
 

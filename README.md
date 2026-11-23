@@ -114,6 +114,6 @@ Contributions to improve the integration are welcome! Please feel free to submit
 
 This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
 
-[releases-shield]: https://img.shields.io/github/v/release/chicagoandy/ha-peplink-router?include_prereleases&style=for-the-badge
+[releases-shield]: https://img.shields.io/github/v/release/chicagoandy/ha-peplink-router?include_prereleases&style=for-the-badge&cacheSeconds=3600
 [releases]: https://github.com/chicagoandy/ha-peplink-router/releases
-[license-shield]: https://img.shields.io/github/license/chicagoandy/ha-peplink-router.svg?style=for-the-badge
+[license-shield]: https://img.shields.io/github/license/chicagoandy/ha-peplink-router?style=for-the-badge&cacheSeconds=3600

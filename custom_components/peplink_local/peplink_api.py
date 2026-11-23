@@ -114,18 +114,18 @@ class PeplinkAPI:
                     
                     # Parse cookie from response
                     cookies = response.cookies
-                    _LOGGER.debug("Cookies from response: %s", cookies)
+                    _LOGGER.debug("Login response cookies: %s", list(cookies.keys()))
                     
                     # Extract the bauth cookie
                     if "bauth" in cookies:
                         self._auth_cookie = cookies["bauth"].value
-                        _LOGGER.debug("Got auth cookie: %s", self._auth_cookie)
+                        _LOGGER.debug("Got auth cookie")
                     
                     if not self._auth_cookie:
                         # Try extracting from Set-Cookie header if available
                         if "Set-Cookie" in response.headers:
                             cookie_header = response.headers["Set-Cookie"]
-                            _LOGGER.debug("Set-Cookie header: %s", cookie_header)
+                            _LOGGER.debug("Parsing Set-Cookie header for auth cookie")
                             
                             if "bauth=" in cookie_header:
                                 # Extract the bauth value from cookie header
@@ -134,7 +134,7 @@ class PeplinkAPI:
                                 for part in cookie_parts:
                                     if part.strip().startswith("bauth="):
                                         self._auth_cookie = part.strip().split('=', 1)[1]
-                                        _LOGGER.debug("Extracted bauth cookie from header: %s", self._auth_cookie)
+                                        _LOGGER.debug("Extracted auth cookie from Set-Cookie header")
                                         break
                     
                     if not self._auth_cookie:
@@ -152,7 +152,7 @@ class PeplinkAPI:
             headers = {}
             if self._auth_cookie:
                 headers["Cookie"] = f"bauth={self._auth_cookie}"
-                _LOGGER.debug("Using stored auth cookie for verification request: %s", headers["Cookie"])
+                _LOGGER.debug("Using stored auth cookie for verification request")
             
             async with session.get(verify_url, headers=headers) as response:
                 if response.status == 401:
@@ -209,7 +209,7 @@ class PeplinkAPI:
         # Manually add cookie to request if available
         if self._auth_cookie:
             headers["Cookie"] = f"bauth={self._auth_cookie}"
-            _LOGGER.debug("Adding auth cookie to request: %s", headers["Cookie"])
+            _LOGGER.debug("Adding auth cookie to request")
         
         try:
             async with session.request(method, url, json=data, headers=headers) as response:

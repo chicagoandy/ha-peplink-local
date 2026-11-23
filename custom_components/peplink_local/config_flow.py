@@ -132,7 +132,6 @@ class PeplinkLocalOptionsFlowHandler(config_entries.OptionsFlow):
         """Initialize options flow."""
         # Don't directly set self.config_entry as it's deprecated
         self.entry = config_entry
-        self.options = dict(config_entry.data)
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
@@ -140,18 +139,19 @@ class PeplinkLocalOptionsFlowHandler(config_entries.OptionsFlow):
             # Update the options
             return self.async_create_entry(title="", data=user_input)
 
-        # Fill the form with current values
+        # Fill the form with current values (options override setup data)
+        current = {**self.entry.data, **self.entry.options}
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
                     vol.Optional(
                         CONF_VERIFY_SSL,
-                        default=self.entry.data.get(CONF_VERIFY_SSL, True),
+                        default=current.get(CONF_VERIFY_SSL, True),
                     ): bool,
                     vol.Optional(
                         CONF_POLL_FREQUENCY,
-                        default=self.entry.data.get(CONF_POLL_FREQUENCY, DEFAULT_POLL_FREQUENCY),
+                        default=current.get(CONF_POLL_FREQUENCY, DEFAULT_POLL_FREQUENCY),
                     ): vol.All(vol.Coerce(int), vol.Range(min=1, max=300)),
                 }
             ),

@@ -89,7 +89,7 @@ async def test_api(router_ip, username, password, verify_ssl=False):
         _LOGGER.info("Successfully connected to the Peplink router")
         test_results["connection"] = "PASSED"
         
-        # 1. Get combined system information (device info, thermal sensors, fan speeds, system time)
+        # 1. Get combined system information (device info, system time)
         _LOGGER.info("Fetching combined system information...")
         try:
             system_info = await api.get_system_info()
@@ -125,43 +125,7 @@ async def test_api(router_ip, username, password, verify_ssl=False):
             _LOGGER.error("Error during device_info test: %s", e)
             test_results["device_info"] = f"FAILED: {str(e)}"
             
-        # 3. Get thermal sensors data separately
-        _LOGGER.info("Fetching thermal sensors data separately...")
-        try:
-            thermal_sensors = await api.get_thermal_sensors()
-            _LOGGER.info("Thermal sensors data: %s", json.dumps(thermal_sensors, indent=2))
-            
-            # Verify the thermal sensors structure
-            verify_thermal_sensors(thermal_sensors)
-            
-            # Save to file
-            with open(output_dir / "thermal_sensors.json", "w") as f:
-                json.dump(thermal_sensors, f, indent=2)
-                
-            test_results["thermal_sensors"] = "PASSED"
-        except Exception as e:
-            _LOGGER.error("Error during thermal_sensors test: %s", e)
-            test_results["thermal_sensors"] = f"FAILED: {str(e)}"
-            
-        # 4. Get fan speeds data separately
-        _LOGGER.info("Fetching fan speeds data separately...")
-        try:
-            fan_speeds = await api.get_fan_speeds()
-            _LOGGER.info("Fan speeds data: %s", json.dumps(fan_speeds, indent=2))
-            
-            # Verify the fan speeds structure
-            verify_fan_speeds(fan_speeds)
-            
-            # Save to file
-            with open(output_dir / "fan_speeds.json", "w") as f:
-                json.dump(fan_speeds, f, indent=2)
-                
-            test_results["fan_speeds"] = "PASSED"
-        except Exception as e:
-            _LOGGER.error("Error during fan_speeds test: %s", e)
-            test_results["fan_speeds"] = f"FAILED: {str(e)}"
-        
-        # 5. WAN status
+        # 3. WAN status
         _LOGGER.info("Fetching WAN status...")
         try:
             wan_status = await api.get_wan_status()
@@ -190,7 +154,7 @@ async def test_api(router_ip, username, password, verify_ssl=False):
             test_results["wan_status"] = f"FAILED: {str(e)}"
             test_context = {"wan_interfaces": []}
         
-        # 6. Client information
+        # 4. Client information
         _LOGGER.info("Fetching client information...")
         try:
             clients = await api.get_clients()
@@ -208,7 +172,7 @@ async def test_api(router_ip, username, password, verify_ssl=False):
             _LOGGER.error("Error during clients test: %s", e)
             test_results["clients"] = f"FAILED: {str(e)}"
         
-        # 7. Traffic statistics
+        # 5. Traffic statistics
         _LOGGER.info("Fetching traffic statistics...")
         try:
             traffic_stats = await api.get_traffic_stats()
@@ -226,7 +190,7 @@ async def test_api(router_ip, username, password, verify_ssl=False):
             _LOGGER.error("Error during traffic_stats test: %s", e)
             test_results["traffic_stats"] = f"FAILED: {str(e)}"
         
-        # 8. Location information from GPS
+        # 6. Location information from GPS
         _LOGGER.info("Fetching location information...")
         try:
             location_info = await api.get_location()
@@ -280,8 +244,6 @@ def verify_system_info(system_info):
     """Verify that the system_info response matches the expected structure."""
     # Check for required top-level keys
     assert "device_info" in system_info, "Missing 'device_info' in system_info"
-    assert "thermal_sensors" in system_info, "Missing 'thermal_sensors' in system_info"
-    assert "fan_speeds" in system_info, "Missing 'fan_speeds' in system_info"
     assert "system_time" in system_info, "Missing 'system_time' in system_info"
     
     # Verify device_info structure
@@ -289,15 +251,6 @@ def verify_system_info(system_info):
     assert "serial_number" in device_info, "Missing 'serial_number' in device_info"
     assert "name" in device_info, "Missing 'name' in device_info"
     assert "model" in device_info, "Missing 'model' in device_info"
-    assert "firmware_version" in device_info, "Missing 'firmware_version' in device_info"
-    
-    # Verify thermal_sensors structure
-    thermal_sensors = system_info["thermal_sensors"]
-    assert "sensors" in thermal_sensors, "Missing 'sensors' in thermal_sensors"
-    
-    # Verify fan_speeds structure
-    fan_speeds = system_info["fan_speeds"]
-    assert "fans" in fan_speeds, "Missing 'fans' in fan_speeds"
     
     # Verify system_time structure
     system_time = system_info["system_time"]
@@ -315,37 +268,8 @@ def verify_device_info(device_info):
     assert "serial_number" in info, "Missing 'serial_number' in device_info"
     assert "name" in info, "Missing 'name' in device_info"
     assert "model" in info, "Missing 'model' in device_info"
-    assert "firmware_version" in info, "Missing 'firmware_version' in device_info"
     
     _LOGGER.info("Device info structure verification passed")
-
-
-def verify_thermal_sensors(thermal_sensors):
-    """Verify that the thermal_sensors response matches the expected structure."""
-    assert "sensors" in thermal_sensors, "Missing 'sensors' in thermal_sensors"
-    
-    sensors = thermal_sensors["sensors"]
-    if sensors:  # Some routers might not have thermal sensors
-        for sensor in sensors:
-            assert "name" in sensor, "Missing 'name' in sensor"
-            assert "temperature" in sensor, "Missing 'temperature' in sensor"
-            assert "unit" in sensor, "Missing 'unit' in sensor"
-    
-    _LOGGER.info("Thermal sensors structure verification passed")
-
-
-def verify_fan_speeds(fan_speeds):
-    """Verify that the fan_speeds response matches the expected structure."""
-    assert "fans" in fan_speeds, "Missing 'fans' in fan_speeds"
-    
-    fans = fan_speeds["fans"]
-    if fans:  # Some routers might not have fans
-        for fan in fans:
-            assert "name" in fan, "Missing 'name' in fan"
-            assert "speed" in fan, "Missing 'speed' in fan"
-            assert "unit" in fan, "Missing 'unit' in fan"
-    
-    _LOGGER.info("Fan speeds structure verification passed")
 
 
 def verify_wan_status(wan_status):

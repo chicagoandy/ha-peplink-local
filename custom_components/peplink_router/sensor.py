@@ -22,7 +22,6 @@ from homeassistant.const import (
     PERCENTAGE,
     SIGNAL_STRENGTH_DECIBELS,
     SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
-    REVOLUTIONS_PER_MINUTE,
     UnitOfTemperature,
     UnitOfDataRate,
     UnitOfTime,
@@ -96,29 +95,6 @@ def _make_up_since() -> Callable[[Any], datetime.datetime | None]:
 
 
 SENSOR_TYPES: tuple[PeplinkSensorEntityDescription, ...] = (
-    # System sensors
-    PeplinkSensorEntityDescription(
-        key="system_temperature",
-        translation_key=None,
-        name="System Temperature",
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda x: x.get("temperature"),
-        icon="mdi:thermometer",
-    ),
-    PeplinkSensorEntityDescription(
-        key="system_temperature_threshold",
-        translation_key=None,
-        name="System Temperature Threshold",
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda x: x.get("threshold"),
-        icon="mdi:thermometer-alert",
-    ),
     # System-level bandwidth sensors
     PeplinkSensorEntityDescription(
         key="system_download_rate",
@@ -459,20 +435,6 @@ async def async_setup_entry(
 
     entities = []
 
-    # Add system sensors
-    thermal_sensors = coordinator.data.get("thermal_sensors", {})
-    if thermal_sensors and thermal_sensors.get("sensors"):
-        sensor = thermal_sensors["sensors"][0]  # Only one sensor
-        for description in SENSOR_TYPES:
-            if description.key in ["system_temperature", "system_temperature_threshold"]:
-                entities.append(
-                    PeplinkSensor(
-                        coordinator=coordinator,
-                        description=description,
-                        sensor_data=sensor,
-                    )
-                )
-
     # Add system-level bandwidth sensors
     if coordinator.data.get("traffic_stats", {}).get("stats"):
         raw_traffic_data = coordinator.data["traffic_stats"]["stats"]
@@ -510,30 +472,6 @@ async def async_setup_entry(
                         sensor_data=device_info,
                     )
                 )
-
-    # Add fan sensors
-    if coordinator.data.get("fan_speeds", {}).get("fans"):
-        fans = coordinator.data["fan_speeds"]["fans"]
-        for fan_num, fan in enumerate(fans, 1):
-            # Dynamically create a fan speed sensor for each fan
-            fan_speed_description = PeplinkSensorEntityDescription(
-                key=f"fan_{fan_num}_speed",
-                translation_key=None,
-                name=f"Fan {fan_num} Speed",
-                native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
-                device_class=None,
-                state_class=SensorStateClass.MEASUREMENT,
-                entity_category=EntityCategory.DIAGNOSTIC,
-                icon="mdi:fan",
-                value_fn=lambda x: x.get("speed"),
-            )
-            entities.append(
-                PeplinkSensor(
-                    coordinator=coordinator,
-                    description=fan_speed_description,
-                    sensor_data=fan,
-                )
-            )
 
     # Connected clients: count of active clients, full list as an attribute.
     entities.append(PeplinkConnectedClientsSensor(coordinator))
@@ -666,17 +604,7 @@ class PeplinkSensor(CoordinatorEntity, SensorEntity):
         self._sensor_data_id = None
         
         # Store identifiers to find data in coordinator updates
-        if description.key.startswith("system_temperature"):
-            self._sensor_data_key = "thermal_sensors"
-            self._sensor_data_id = "System"  # System temperature sensor name
-        elif description.key.startswith("fan_"):
-            self._sensor_data_key = "fan_speeds"
-            # Extract fan number from key (e.g., fan_1_speed -> 1)
-            try:
-                self._sensor_data_id = description.key.split("_")[1]
-            except (IndexError, ValueError):
-                self._sensor_data_id = None
-        elif description.key.startswith("device_"):
+        if description.key.startswith("device_"):
             self._sensor_data_key = "device_info"
         elif description.key in ["heading", "speed", "altitude"]:
             self._sensor_data_key = "location_info"
@@ -738,24 +666,8 @@ class PeplinkSensor(CoordinatorEntity, SensorEntity):
                     value = self.entity_description.value_fn(system_traffic_data)
             # Check if we need to extract from a specific data category
             elif self._sensor_data_key:
-                # Handle thermal sensors
-                if self._sensor_data_key == "thermal_sensors":
-                    sensors = self.coordinator.data.get("thermal_sensors", {}).get("sensors", [])
-                    for sensor in sensors:
-                        if sensor.get("name") == self._sensor_data_id:
-                            if self.entity_description.value_fn:
-                                value = self.entity_description.value_fn(sensor)
-                            break
-                # Handle fan speeds
-                elif self._sensor_data_key == "fan_speeds":
-                    fans = self.coordinator.data.get("fan_speeds", {}).get("fans", [])
-                    for i, fan in enumerate(fans, 1):
-                        if str(i) == str(self._sensor_data_id):
-                            if self.entity_description.value_fn:
-                                value = self.entity_description.value_fn(fan)
-                            break
                 # Handle device info
-                elif self._sensor_data_key == "device_info":
+                if self._sensor_data_key == "device_info":
                     device_info = self.coordinator.data.get("device_info", {})
                     if device_info and self.entity_description.value_fn:
                         value = self.entity_description.value_fn(device_info)

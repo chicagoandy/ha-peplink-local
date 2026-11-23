@@ -129,8 +129,7 @@ async def test_system_info(api: PeplinkAPI) -> None:
     assert device["product_code"] == "MAX-BR1-MINI-5GN-T-PRM"
     assert "firmware_version" not in device  # documented info.firmware owns it
     assert device["serial_number"]  # redacted placeholder, but present
-    # Fanless model: no fans reported.
-    assert info["fan_speeds"].get("fans", []) == []
+    assert set(info) == {"device_info", "system_time"}  # no temperature/fans
 
 
 async def test_traffic_stats(api: PeplinkAPI) -> None:

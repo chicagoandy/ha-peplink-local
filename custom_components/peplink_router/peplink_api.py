@@ -469,7 +469,7 @@ class PeplinkAPI:
 
     async def get_system_info(self) -> Dict[str, Any]:
         """
-        Retrieve combined system information from the router including device info, thermal sensors, and fan speeds.
+        Retrieve device information and system time from the router (undocumented web-UI API).
         
         Returns:
             dict: Dictionary containing combined system information
@@ -484,29 +484,6 @@ class PeplinkAPI:
                          "host": str,               # Host address
                          "pepvpn_version": str      # PepVPN version
                      },
-                     "thermal_sensors": {
-                         "sensors": [
-                             {
-                                 "name": str,        # Sensor name
-                                 "temperature": float, # Current temperature
-                                 "unit": str,        # Temperature unit (C)
-                                 "min": float,       # Minimum temperature
-                                 "max": float,       # Maximum temperature
-                                 "threshold": float  # Temperature threshold
-                             }
-                         ]
-                     },
-                     "fan_speeds": {
-                         "fans": [
-                             {
-                                 "name": str,        # Fan name
-                                 "speed": int,       # Current speed
-                                 "unit": str,        # Speed unit (RPM)
-                                 "max_speed": int,   # Maximum speed
-                                 "percentage": float # Speed as percentage of maximum
-                             }
-                         ]
-                     },
                      "system_time": {
                          "time_string": str,        # Formatted time string
                          "timestamp": int,          # UNIX timestamp
@@ -516,12 +493,10 @@ class PeplinkAPI:
         """
         try:
             # Combined info types in a single request
-            response = await self._make_api_request("status.system.info", public_api=False, infoType="device%20systemTime%20thermalSensor%20fanSpeed")
+            response = await self._make_api_request("status.system.info", public_api=False, infoType="device%20systemTime")
                 
             result = {
                 "device_info": {},
-                "thermal_sensors": {"sensors": []},
-                "fan_speeds": {"fans": []},
                 "system_time": {}
             }
                 
@@ -539,32 +514,6 @@ class PeplinkAPI:
                         "host": device_info.get("host", ""),
                         "pepvpn_version": device_info.get("pepvpnVersion", "")
                     }
-                
-                # Process thermal sensor information
-                sensors = []
-                for sensor in response["response"].get("thermalSensor", []):
-                    sensors.append({
-                        "name": "System",  # Only one sensor per device
-                        "temperature": float(sensor.get("temperature", 0)),
-                        "unit": "C",
-                        "min": float(sensor.get("min", -30)),
-                        "max": float(sensor.get("max", 110)),
-                        "threshold": float(sensor.get("threshold", 30))
-                    })
-                result["thermal_sensors"] = {"sensors": sensors}
-                
-                # Process fan speed information
-                fans = []
-                for i, fan in enumerate(response["response"].get("fanSpeed", []), 1):
-                    if fan.get("active", False):
-                        fans.append({
-                            "name": f"Fan {i}",
-                            "speed": int(fan.get("value", 0)),
-                            "unit": "RPM",
-                            "max_speed": int(fan.get("total", 17000)),
-                            "percentage": float(fan.get("percentage", 0))
-                        })
-                result["fan_speeds"] = {"fans": fans}
                 
                 # Process system time information
                 system_time = response["response"].get("systemTime", {})
@@ -584,113 +533,8 @@ class PeplinkAPI:
             _LOGGER.error("Error fetching combined system information: %s", e)
             return {
                 "device_info": {},
-                "thermal_sensors": {"sensors": []},
-                "fan_speeds": {"fans": []},
                 "system_time": {}
             }
-
-    async def get_thermal_sensors(self) -> Dict[str, Any]:
-        """
-        Retrieve thermal sensor data from the router using undocumented API.
-        
-        Returns:
-            dict: Dictionary containing thermal sensor information
-                 Format: {
-                     "sensors": [
-                         {
-                             "name": str,          # Sensor name
-                             "temperature": float,  # Current temperature
-                             "unit": str,           # Temperature unit (C)
-                             "min": float,          # Minimum temperature
-                             "max": float,          # Maximum temperature
-                             "threshold": float     # Temperature threshold
-                         }
-                     ]
-                 }
-        """
-        # Try to get data from the combined system info call for efficiency
-        try:
-            system_info = await self.get_system_info()
-            if system_info and system_info.get("thermal_sensors", {}).get("sensors"):
-                return system_info["thermal_sensors"]
-        except Exception as e:
-            _LOGGER.warning("Error getting thermal sensors from combined call, falling back to dedicated call: %s", e)
-        
-        # Fallback to the original method if combined call fails
-        try:
-            response = await self._make_api_request("status.system.info", public_api=False, infoType="thermalSensor")
-                
-            # Process the response
-            if response.get("stat") == "ok" and "response" in response:
-                sensors = []
-                for sensor in response["response"].get("thermalSensor", []):
-                    sensors.append({
-                        "name": "System",  # Only one sensor per device
-                        "temperature": float(sensor.get("temperature", 0)),
-                        "unit": "C",
-                        "min": float(sensor.get("min", -30)),
-                        "max": float(sensor.get("max", 110)),
-                        "threshold": float(sensor.get("threshold", 30))
-                    })
-                return {"sensors": sensors}
-            else:
-                _LOGGER.warning("Unexpected thermal sensor data format: %s", response)
-                return {"sensors": []}
-                    
-        except Exception as e:
-            _LOGGER.error("Error fetching thermal sensor data: %s", e)
-            return {"sensors": []}
-
-    async def get_fan_speeds(self) -> Dict[str, Any]:
-        """
-        Retrieve fan speed data from the router using undocumented API.
-        
-        Returns:
-            dict: Dictionary containing fan speed information
-                 Format: {
-                     "fans": [
-                         {
-                             "name": str,          # Fan name
-                             "speed": int,          # Current speed
-                             "unit": str,           # Speed unit (RPM)
-                             "max_speed": int,      # Maximum speed
-                             "percentage": float    # Speed as percentage of maximum
-                         }
-                     ]
-                 }
-        """
-        # Try to get data from the combined system info call for efficiency
-        try:
-            system_info = await self.get_system_info()
-            if system_info and system_info.get("fan_speeds", {}).get("fans"):
-                return system_info["fan_speeds"]
-        except Exception as e:
-            _LOGGER.warning("Error getting fan speeds from combined call, falling back to dedicated call: %s", e)
-            
-        # Fallback to the original method if combined call fails
-        try:
-            response = await self._make_api_request("status.system.info", public_api=False, infoType="fanSpeed")
-                
-            # Process the response
-            if response.get("stat") == "ok" and "response" in response:
-                fans = []
-                for i, fan in enumerate(response["response"].get("fanSpeed", []), 1):
-                    if fan.get("active", False):
-                        fans.append({
-                            "name": f"Fan {i}",
-                            "speed": int(fan.get("value", 0)),
-                            "unit": "RPM",
-                            "max_speed": int(fan.get("total", 17000)),
-                            "percentage": float(fan.get("percentage", 0))
-                        })
-                return {"fans": fans}
-            else:
-                _LOGGER.warning("Unexpected fan speed data format: %s", response)
-                return {"fans": []}
-                    
-        except Exception as e:
-            _LOGGER.error("Error fetching fan speed data: %s", e)
-            return {"fans": []}
 
     async def get_device_info(self) -> Dict[str, Any]:
         """

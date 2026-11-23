@@ -1,0 +1,28 @@
+join_wifi:
+  target:
+    entity:
+      integration: peplink_local
+      domain: select
+  fields:
+    password:
+      required: false
+      selector:
+        text:
+          type: password
+    ssid:
+      required: false
+      example: CampgroundWiFi
+      selector:
+        text:
+
+forget_wifi:
+  target:
+    entity:
+      integration: peplink_local
+      domain: select
+  fields:
+    ssid:
+      required: false
+      example: CampgroundWiFi
+      selector:
+        text:

@@ -228,3 +228,33 @@ async def test_one_shot_commands(api: PeplinkAPI) -> None:
         assert posted(m, "cmd.starlink") == [{"connId": 1, "action": "stow"}]
         with pytest.raises(ValueError):
             await api.starlink_command(1, "launch")
+
+
+async def test_wifi_scan_connect_result_forget(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.get(re.compile(rf"^{re.escape(BASE)}/api/cmd\.wifi\.scan\?.*connId=4.*$"),
+              payload={"stat": "ok", "response": [{"ssid": "Camp", "securityPolicy": "wpa-psk"}]})
+        m.post(f"{BASE}/api/cmd.wifi.connect", payload={"stat": "ok"})
+        m.get(re.compile(rf"^{re.escape(BASE)}/api/cmd\.wifi\.result\?connId=4$"),
+              payload={"stat": "ok", "response": {"result": "PSK_AUTH_FAIL", "ssid": "Camp"}})
+        m.post(f"{BASE}/api/cmd.wifi.forget", payload={"stat": "ok"})
+        m.post(f"{BASE}/api/cmd.wifi.disconnect", payload={"stat": "ok"})
+        await api.connect()
+        assert (await api.wifi_scan(4))[0]["ssid"] == "Camp"
+        await api.wifi_connect(4, "Camp", "pw", "wpa-psk")
+        assert posted(m, "cmd.wifi.connect")[0]["security"]["policy"]["detail"]["key"] == "pw"
+        assert (await api.wifi_result("4"))["result"] == "PSK_AUTH_FAIL"
+        await api.wifi_forget(4, "Camp", "wpa-psk")
+        assert posted(m, "cmd.wifi.forget") == [{"connId": 4, "ssid": "Camp", "securityPolicy": "wpa-psk"}]
+        await api.wifi_disconnect(4)
+        assert posted(m, "cmd.wifi.disconnect") == [{"connId": 4}]
+
+
+async def test_saved_wifi_from_wan_config(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.get(f"{BASE}/api/config.wan.connection", payload=load(BR1_MINI, "config.wan.connection"))
+        await api.connect()
+        config = await api.get_wan_config()
+        assert "4" in config and config["4"]["wifi"]["wifiConnectionProfile"]["order"] == [2, 1]

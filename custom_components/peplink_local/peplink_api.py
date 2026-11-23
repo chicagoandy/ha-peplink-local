@@ -969,6 +969,63 @@ class PeplinkAPI:
             raise ValueError(f"Starlink action must be one of {STARLINK_ACTIONS}, not {action!r}")
         await self._post("cmd.starlink", {"connId": int(conn_id), "action": action})
 
+    # ------------------------------------------------------------------
+    # Wi-Fi WAN: scan, join, result, disconnect, forget (fw 7.1.1+)
+    # ------------------------------------------------------------------
+
+    async def _get(self, func_with_query: str) -> Any:
+        """GET /api/<func>?<query>; return 'response' or raise PeplinkCommandError."""
+        response = await self._make_api_request(func_with_query, public_api=True)
+        if not isinstance(response, dict) or response.get("stat") != "ok":
+            message = response.get("message") if isinstance(response, dict) else None
+            raise PeplinkCommandError(f"{func_with_query.split('?')[0]} failed: {message or response}")
+        return response.get("response")
+
+    async def get_wan_config(self) -> dict[str, Any]:
+        """config.wan.connection for all WANs (includes saved Wi-Fi profiles)."""
+        result = await self._get("config.wan.connection")
+        return result if isinstance(result, dict) else {}
+
+    async def wifi_scan(self, conn_id: int | str) -> list[dict[str, Any]]:
+        """Nearby access points seen by a Wi-Fi WAN, strongest first.
+
+        infoType=config adds each AP's saved-profile info ("config.profileId").
+        """
+        result = await self._get(
+            f"cmd.wifi.scan?connId={int(conn_id)}&infoType=config&sortBy=signal&sortOrder=desc"
+        )
+        return result if isinstance(result, list) else []
+
+    async def wifi_connect(
+        self,
+        conn_id: int | str,
+        ssid: str,
+        password: str | None = None,
+        security_policy: str | None = None,
+    ) -> None:
+        """Join a network on a Wi-Fi WAN (saved/open: SSID only; else with key)."""
+        try:
+            from .wifi import connect_body
+        except ImportError:  # loaded standalone (tests, standalone_test.py)
+            from wifi import connect_body
+
+        await self._post("cmd.wifi.connect", connect_body(conn_id, ssid, password, security_policy))
+
+    async def wifi_result(self, conn_id: int | str) -> dict[str, Any]:
+        """Outcome of the last join attempt (CONNECTED, PSK_AUTH_FAIL, ...)."""
+        result = await self._get(f"cmd.wifi.result?connId={int(conn_id)}")
+        return result if isinstance(result, dict) else {}
+
+    async def wifi_disconnect(self, conn_id: int | str) -> None:
+        await self._post("cmd.wifi.disconnect", {"connId": int(conn_id)})
+
+    async def wifi_forget(self, conn_id: int | str, ssid: str, security_policy: str) -> None:
+        """Delete a saved network profile (disconnects if it is in use)."""
+        await self._post(
+            "cmd.wifi.forget",
+            {"connId": int(conn_id), "ssid": ssid, "securityPolicy": security_policy},
+        )
+
     async def close(self) -> None:
         """Close the session if we created it."""
         if self._own_session and self._session is not None:

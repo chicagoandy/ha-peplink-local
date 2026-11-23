@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -26,6 +27,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import clients as client_util
+from . import wifi as wifi_util
 from .const import (
     DOMAIN,
     EVENT_NEW_CLIENT,
@@ -191,6 +193,43 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass, 1, f"{DOMAIN}.{config_entry.entry_id}.known_clients"
         )
         self._known_macs: set[str] | None = None
+        # Wi-Fi WAN scanning/joining (button, select and sensor platforms)
+        self.wifi_networks: dict[str, list[dict[str, Any]]] = {}  # wan_id -> scan
+        self.wifi_scanned_at: dict[str, Any] = {}
+        self.wifi_selected: dict[str, str] = {}  # wan_id -> chosen SSID
+        self.wifi_results: dict[str, dict[str, Any]] = {}  # wan_id -> last result
+        self._wifi_watch: dict[str, float] = {}  # wan_id -> monotonic deadline
+        self.wifi_saved: dict[str, list[dict[str, Any]]] = {}  # wan_id -> profiles
+        self._wifi_saved_at: float | None = None
+
+    async def async_refresh_wifi_saved(self) -> None:
+        """Re-read saved Wi-Fi networks (config.wan.connection)."""
+        try:
+            config = await self.api.get_wan_config()
+        except Exception as err:
+            _LOGGER.debug("Could not read saved Wi-Fi networks: %s", err)
+            return
+        self.wifi_saved = {
+            str(wan_id): wifi_util.saved_networks(config.get(str(wan_id)))
+            for wan_id in config.get("order", [])
+            if (config.get(str(wan_id)) or {}).get("wifi") is not None
+        }
+        self._wifi_saved_at = time.monotonic()
+
+    def watch_wifi_result(self, wan_id: str, seconds: float = 90) -> None:
+        """Poll cmd.wifi.result for a while after a join (it takes 20-60 s)."""
+        self._wifi_watch[wan_id] = time.monotonic() + seconds
+
+    async def _async_poll_wifi_results(self) -> None:
+        now = time.monotonic()
+        for wan_id, deadline in list(self._wifi_watch.items()):
+            if now > deadline:
+                del self._wifi_watch[wan_id]
+                continue
+            try:
+                self.wifi_results[wan_id] = await self.api.wifi_result(wan_id)
+            except Exception as err:  # never fail the whole update for this
+                _LOGGER.debug("Wi-Fi result for WAN %s unavailable: %s", wan_id, err)
 
     async def async_load_known_clients(self) -> None:
         """Load the MACs seen in earlier runs (None until the first save)."""
@@ -274,6 +313,12 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 raise UpdateFailed("Failed to get traffic statistics")
                 
             self._announce_new_clients(clients.get("client", []))
+            if self._wifi_watch:
+                await self._async_poll_wifi_results()
+            # Saved networks change rarely: at start, every 10 min, and after
+            # a join/forget (the platforms call async_refresh_wifi_saved).
+            if self._wifi_saved_at is None or time.monotonic() - self._wifi_saved_at > 600:
+                await self.async_refresh_wifi_saved()
 
             # Update model and firmware information if available
             device_info_data = device_info.get("device_info", {})

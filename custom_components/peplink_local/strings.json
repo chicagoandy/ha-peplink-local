@@ -59,5 +59,31 @@
         "name": "Uptime"
       }
     }
+  },
+  "services": {
+    "join_wifi": {
+      "name": "Join Wi-Fi network",
+      "description": "Joins a Wi-Fi network on a Peplink Wi-Fi WAN. Target the WAN's Network select. Without an SSID it joins the network chosen in that select. Give the password for a new secured network; the router saves it for next time.",
+      "fields": {
+        "password": {
+          "name": "Password",
+          "description": "Wi-Fi password. Leave empty for open networks and networks the router has already saved."
+        },
+        "ssid": {
+          "name": "Network name (SSID)",
+          "description": "Network to join. Leave empty to use the one chosen in the Network select."
+        }
+      }
+    },
+    "forget_wifi": {
+      "name": "Forget Wi-Fi network",
+      "description": "Deletes a saved Wi-Fi network from the router (and disconnects if it is in use). Target the WAN's Network select.",
+      "fields": {
+        "ssid": {
+          "name": "Network name (SSID)",
+          "description": "Network to forget. Leave empty to use the one chosen in the Network select."
+        }
+      }
+    }
   }
 }

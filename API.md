@@ -1,4 +1,4 @@
-# The Peplink Local API
+# The Peplink Router API
 
 ## Authentication
 

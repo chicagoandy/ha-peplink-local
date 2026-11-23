@@ -1,4 +1,4 @@
-"""Config flow for Peplink Local integration."""
+"""Config flow for Peplink Router integration."""
 from __future__ import annotations
 
 import logging
@@ -89,7 +89,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
 
 class PeplinkLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Peplink Local."""
+    """Handle a config flow for Peplink Router."""
 
     VERSION = 1
 
@@ -138,7 +138,7 @@ class PeplinkLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class PeplinkLocalOptionsFlowHandler(config_entries.OptionsFlow):
-    """Handle Peplink Local options."""
+    """Handle Peplink Router options."""
 
     def __init__(self, config_entry):
         """Initialize options flow."""

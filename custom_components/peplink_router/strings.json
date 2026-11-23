@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to Peplink Router",
-        "description": "Set up Peplink Local integration to monitor your Peplink router.",
+        "description": "Set up Peplink Router integration to monitor your Peplink router.",
         "data": {
           "host": "IP Address",
           "username": "Username",

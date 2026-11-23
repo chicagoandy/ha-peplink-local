@@ -1,0 +1,14 @@
+{
+  "domain": "peplink_router",
+  "name": "Peplink Router",
+  "codeowners": [
+    "@chicagoandy"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/chicagoandy/ha-peplink-router",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/chicagoandy/ha-peplink-router/issues",
+  "requirements": [],
+  "version": "1.0.0-beta1"
+}

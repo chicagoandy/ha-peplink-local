@@ -1,4 +1,4 @@
-"""Binary sensor platform for Peplink Local integration."""
+"""Binary sensor platform for Peplink Router integration."""
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -10,7 +10,7 @@ import pytest
 
 ROOT = Path(__file__).parent.parent
 _spec = importlib.util.spec_from_file_location(
-    "wan_data", ROOT / "custom_components" / "peplink_local" / "wan_data.py"
+    "wan_data", ROOT / "custom_components" / "peplink_router" / "wan_data.py"
 )
 wan_data = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(wan_data)

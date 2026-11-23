@@ -22,7 +22,7 @@ import types
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import the API client directly from its file
-sys.path.append(str(Path(__file__).parent.parent / "custom_components" / "peplink_local"))
+sys.path.append(str(Path(__file__).parent.parent / "custom_components" / "peplink_router"))
 from peplink_api import PeplinkAPI, _create_insecure_ssl_context  # isort:skip
 
 # Import dotenv for loading environment variables

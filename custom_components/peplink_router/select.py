@@ -145,7 +145,7 @@ class PeplinkWifiNetworkSelect(PeplinkControlEntity, SelectEntity):
         self.async_write_ha_state()
 
     async def async_join_wifi(self, ssid: str | None = None, password: str | None = None) -> None:
-        """Action peplink_local.join_wifi: join (with a password if given)."""
+        """Action peplink_router.join_wifi: join (with a password if given)."""
         wan_id = self._wan_id
         ssid = ssid or self.coordinator.wifi_selected.get(wan_id)
         if not ssid:
@@ -163,7 +163,7 @@ class PeplinkWifiNetworkSelect(PeplinkControlEntity, SelectEntity):
         await self._run(join, f"join '{ssid}' on WAN {wan_id}")
 
     async def async_forget_wifi(self, ssid: str | None = None) -> None:
-        """Action peplink_local.forget_wifi: delete a saved network."""
+        """Action peplink_router.forget_wifi: delete a saved network."""
         wan_id = self._wan_id
         ssid = ssid or self.current_option
         if not ssid or ssid == NO_SCAN_YET:

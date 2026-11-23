@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 _spec = importlib.util.spec_from_file_location(
-    "clients", ROOT / "custom_components" / "peplink_local" / "clients.py"
+    "clients", ROOT / "custom_components" / "peplink_router" / "clients.py"
 )
 clients = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(clients)

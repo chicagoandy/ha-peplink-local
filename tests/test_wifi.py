@@ -10,7 +10,7 @@ import pytest
 
 ROOT = Path(__file__).parent.parent
 _spec = importlib.util.spec_from_file_location(
-    "wifi", ROOT / "custom_components" / "peplink_local" / "wifi.py"
+    "wifi", ROOT / "custom_components" / "peplink_router" / "wifi.py"
 )
 wifi = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(wifi)

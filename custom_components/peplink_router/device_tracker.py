@@ -1,4 +1,4 @@
-"""Device tracker platform for Peplink Local integration."""
+"""Device tracker platform for Peplink Router integration."""
 import logging
 from typing import Any, Dict, Optional
 

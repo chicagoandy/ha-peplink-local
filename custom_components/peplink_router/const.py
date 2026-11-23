@@ -1,6 +1,6 @@
-"""Constants for the Peplink Local integration."""
+"""Constants for the Peplink Router integration."""
 
-DOMAIN = "peplink_local"
+DOMAIN = "peplink_router"
 
 # Configuration
 CONF_HOST = "host"

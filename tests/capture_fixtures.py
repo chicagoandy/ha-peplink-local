@@ -31,6 +31,7 @@ import re
 import shutil
 import ssl
 import sys
+import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -63,7 +64,7 @@ ID_KEYS = {
     "imei", "imsi", "iccid", "esn", "mtn", "serialnumber", "serial_number",
     "serial", "sn", "hex", "dec", "mac", "bssid", "macaddress",
     "cellid", "cellplmn", "cellutranid", "tac", "lac", "pci", "eci",
-    "ssid", "essid", "dialnumber", "phonenumber",
+    "ssid", "essid", "dialnumber", "phonenumber", "eid", "simpin",
 }
 COORD_KEYS = {"latitude": 40.0, "longitude": -75.0, "altitude": 100.0}
 CLIENT_NAME_PARENTS = {"list", "client"}  # "name" inside client lists
@@ -150,11 +151,18 @@ def main() -> int:
     )
     base = f"https://{args.host}"
 
+    auth_cookie: dict[str, str] = {}
+
     def request(path: str, body: dict | None = None) -> dict:
         data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(
-            base + path, data=data, headers={"Content-Type": "application/json"}
-        )
+        headers = {"Content-Type": "application/json"}
+        # The login cookie is scoped to /api, so the cookie jar won't send it
+        # to /cgi-bin. Send it explicitly, as the integration does.
+        if "bauth" in auth_cookie:
+            headers["Cookie"] = f"bauth={auth_cookie['bauth']}"
+        if path.startswith("/cgi-bin/"):
+            path += f"&_={int(time.time() * 1000)}"
+        req = urllib.request.Request(base + path, data=data, headers=headers)
         with opener.open(req, timeout=15) as resp:
             return json.loads(resp.read().decode("utf-8", "replace"))
 
@@ -162,6 +170,9 @@ def main() -> int:
     if login.get("stat") != "ok":
         print(f"Login failed: {login.get('message') or login}", file=sys.stderr)
         return 1
+    for cookie in jar:
+        if cookie.name == "bauth":
+            auth_cookie["bauth"] = cookie.value
     print("Logged in.")
 
     redactor = Redactor()

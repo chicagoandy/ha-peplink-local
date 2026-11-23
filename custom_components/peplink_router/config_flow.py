@@ -71,7 +71,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     if not await admin.connect():
         raise PeplinkAuthFailed
     try:
-        client_id, client_secret = await admin.create_api_client(API_CLIENT_NAME)
+        client_id, client_secret = await admin.get_or_create_api_client(API_CLIENT_NAME)
     except PeplinkCommandError as err:
         raise ApiClientError from err
     finally:

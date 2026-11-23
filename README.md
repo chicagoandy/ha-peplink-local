@@ -93,11 +93,12 @@ Monitor and control a Peplink / Pepwave router from Home Assistant over its loca
 
 ### How Home Assistant signs in
 
-Setup uses your admin login once to create an **API client** named "Home Assistant" on the router, then signs out. Home Assistant stores only that client's ID and secret, never your admin password. It uses them to get short-lived access tokens (48 hours on current firmware), held in memory and renewed automatically.
+Setup uses your admin login once to create an **API client** named "Home Assistant" on the router (or reuse the one already there), then signs out. Home Assistant stores only that client's ID and secret, never your admin password. It uses them to get short-lived access tokens (48 hours on current firmware), held in memory and renewed automatically.
 
-- **To revoke access**, remove the "Home Assistant" API client on the router. Home Assistant then asks you to sign in again (Settings → Devices & services → Peplink Router → Reconfigure), which creates a new client.
+- **One client, reused:** setup, signing in again and retries all reuse the router's existing read-write "Home Assistant" client, so clients don't pile up. This matters because the router's web UI doesn't show API clients; only the API can list or remove them (`GET /api/auth.client`, and `POST /api/auth.client` with `{"action": "remove", "clientId": "..."}`, both with an admin login).
+- **To revoke access**, remove the "Home Assistant" API client with the API call above. Home Assistant then asks you to sign in again (Settings → Devices & services → Peplink Router), which creates a new client.
 - **Entries set up before 1.0.0-beta7** stored the admin login. The first time a newer version starts, it creates the API client with that login and deletes the stored password.
-- **Removing the integration** does not remove the API client from the router; delete it there if you no longer need it.
+- **Removing the integration** leaves the API client on the router (removing one needs the admin login). Adding the integration again reuses it.
 
 ## GPS Features
 

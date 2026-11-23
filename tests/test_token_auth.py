@@ -164,3 +164,55 @@ async def test_parallel_401s_renew_the_token_once(token_api: PeplinkAPI) -> None
         assert wan.get("connection") and clients.get("client") is not None
         grants = sum(len(v) for k, v in m.requests.items() if "auth.token.grant" in str(k[1]))
         assert grants == 2  # the first sign-in, then a single renewal for both requests
+
+
+def admin_router(m: aioresponses, clients_payload) -> None:
+    m.post(f"{BASE}/api/login", payload={"stat": "ok"}, headers={"Set-Cookie": "bauth=c; Path=/api"})
+    m.get(f"{BASE}/api/status", payload={"stat": "ok"})
+    if isinstance(clients_payload, Exception):
+        m.get(f"{BASE}/api/auth.client", exception=clients_payload)
+    else:
+        m.get(f"{BASE}/api/auth.client", payload=clients_payload)
+    m.post(f"{BASE}/api/auth.client",
+           payload={"stat": "ok", "response": {"clientId": "new-id", "clientSecret": "new-sec",
+                                                "name": "Home Assistant", "scope": "api"}})
+
+
+def created(m: aioresponses) -> bool:
+    return any(meth == "POST" and u.endswith("/api/auth.client") for meth, u in sent(m))
+
+
+@pytest.fixture
+async def admin_api():
+    session = aiohttp.ClientSession()
+    client = PeplinkAPI(host=HOST, username="admin", password="pw", session=session, verify_ssl=False)
+    yield client
+    await session.close()
+
+
+async def test_reuses_existing_home_assistant_client(admin_api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        admin_router(m, {"stat": "ok", "response": [
+            {"name": "REST sensors", "clientId": "rest", "clientSecret": "x", "scope": "api"},
+            {"name": "Home Assistant", "clientId": "ha-id", "clientSecret": "ha-sec", "scope": "api"},
+        ]})
+        assert await admin_api.connect()
+        assert await admin_api.get_or_create_api_client("Home Assistant") == ("ha-id", "ha-sec")
+        assert not created(m)
+
+
+async def test_creates_client_when_none_matches(admin_api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        admin_router(m, {"stat": "ok", "response": {"1": {
+            "name": "Home Assistant", "clientId": "ro", "clientSecret": "x", "scope": "api.read-only"}}})
+        assert await admin_api.connect()
+        # A read-only client can't run the controls, so it is not reused.
+        assert await admin_api.get_or_create_api_client("Home Assistant") == ("new-id", "new-sec")
+        assert created(m)
+
+
+async def test_creates_client_when_list_fails(admin_api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        admin_router(m, {"stat": "fail", "code": 403, "message": "Forbidden"})
+        assert await admin_api.connect()
+        assert await admin_api.get_or_create_api_client("Home Assistant") == ("new-id", "new-sec")

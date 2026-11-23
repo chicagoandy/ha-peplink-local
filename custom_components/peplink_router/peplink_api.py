@@ -138,10 +138,50 @@ class PeplinkAPI:
         _LOGGER.debug("Got an access token valid for %s s", lifetime)
         return True
 
+    async def list_api_clients(self) -> list[dict[str, Any]]:
+        """API clients on the router (GET auth.client, needs the admin login).
+
+        Each item has name, clientId, clientSecret and scope. The router's web
+        UI does not show these, so this is the only way to see them.
+        """
+        result = await self._get("auth.client")
+
+        def walk(node: Any):
+            if isinstance(node, dict):
+                if "clientId" in node:
+                    yield node
+                else:
+                    for value in node.values():
+                        yield from walk(value)
+            elif isinstance(node, list):
+                for value in node:
+                    yield from walk(value)
+
+        return list(walk(result))
+
+    async def get_or_create_api_client(self, name: str = "Home Assistant") -> tuple[str, str]:
+        """Reuse the read-write API client with this name, or create one.
+
+        Reusing keeps setup, re-authentication and retries from piling up
+        clients on the router, where they can't be seen or removed in the UI.
+        Needs the admin login. Returns (client_id, client_secret).
+        """
+        try:
+            existing = await self.list_api_clients()
+        except PeplinkCommandError as err:
+            _LOGGER.debug("Could not list API clients (%s); creating one", err)
+            existing = []
+        for client in existing:
+            if (client.get("name") == name and client.get("scope") == "api"
+                    and client.get("clientId") and client.get("clientSecret")):
+                _LOGGER.debug("Reusing the existing '%s' API client", name)
+                return client["clientId"], client["clientSecret"]
+        return await self.create_api_client(name)
+
     async def create_api_client(self, name: str = "Home Assistant") -> tuple[str, str]:
         """Create a read-write API client on the router (needs the admin login).
 
-        Returns (client_id, client_secret).
+        Prefer get_or_create_api_client. Returns (client_id, client_secret).
         """
         response = await self._post("auth.client", {"action": "add", "name": name, "scope": "api"})
         result = response.get("response") or {}

@@ -29,6 +29,14 @@ class PeplinkSSLError(Exception):
     """SSL Certificate validation error."""
 
 
+class PeplinkCommandError(Exception):
+    """The router rejected a configuration change or command."""
+
+
+ROUTING_MODES = ("NAT", "IP Forwarding")
+STARLINK_ACTIONS = ("reboot", "stow", "unstow")
+
+
 def _create_insecure_ssl_context():
     """Create an insecure SSL context (non-blocking function)."""
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -905,6 +913,62 @@ class PeplinkAPI:
             _LOGGER.error("Error retrieving location information: %s", e)
             return {"gps": False, "type": "Unknown", "location": {}}
             
+    # ------------------------------------------------------------------
+    # Commands and configuration changes (documented /api endpoints)
+    # ------------------------------------------------------------------
+
+    async def _post(self, func: str, body: Optional[Dict] = None) -> Dict:
+        """POST to /api/<func>; raise PeplinkCommandError unless stat is ok."""
+        response = await self._make_api_request(
+            func, public_api=True, method="POST", data=body if body is not None else {}
+        )
+        if not isinstance(response, dict) or response.get("stat") != "ok":
+            message = response.get("message") if isinstance(response, dict) else None
+            raise PeplinkCommandError(f"{func} failed: {message or response}")
+        if response.get("warning"):
+            _LOGGER.warning("%s: %s", func, response["warning"])
+        return response
+
+    async def apply_config(self) -> None:
+        """Apply pending configuration changes (cmd.config.apply, fw 7.1.1+)."""
+        await self._post("cmd.config.apply")
+
+    async def set_wan_enabled(self, conn_id: int | str, enabled: bool) -> None:
+        """Enable or disable a WAN connection, then apply (fw 8.1.1+)."""
+        await self._post(
+            "config.wan.connection",
+            {"action": "update", "list": [{"id": int(conn_id), "enable": bool(enabled)}]},
+        )
+        await self.apply_config()
+
+    async def set_wan_routing_mode(self, conn_id: int | str, mode: str) -> None:
+        """Set a WAN's routing mode to 'NAT' or 'IP Forwarding', then apply."""
+        if mode not in ROUTING_MODES:
+            raise ValueError(f"Routing mode must be one of {ROUTING_MODES}, not {mode!r}")
+        await self._post(
+            "config.wan.connection",
+            {"action": "update", "list": [{"id": int(conn_id), "connection": {"routingMode": mode}}]},
+        )
+        await self.apply_config()
+
+    async def reset_cellular_module(self, conn_id: int | str) -> None:
+        """Power-cycle a cellular modem (cmd.cellularModule.reset, fw 8.0.0+)."""
+        await self._post("cmd.cellularModule.reset", {"connId": int(conn_id)})
+
+    async def rescan_cellular_network(self, conn_id: int | str) -> None:
+        """Rescan for carriers (cmd.cellularModule.rescanNetwork, fw 8.0.0+)."""
+        await self._post("cmd.cellularModule.rescanNetwork", {"connId": int(conn_id)})
+
+    async def reboot(self) -> None:
+        """Reboot the router (cmd.system.reboot, fw 8.2.0+)."""
+        await self._post("cmd.system.reboot")
+
+    async def starlink_command(self, conn_id: int | str, action: str) -> None:
+        """Reboot, stow or unstow a Starlink dish on a WAN (cmd.starlink, fw 8.5.0+, Care Plan)."""
+        if action not in STARLINK_ACTIONS:
+            raise ValueError(f"Starlink action must be one of {STARLINK_ACTIONS}, not {action!r}")
+        await self._post("cmd.starlink", {"connId": int(conn_id), "action": action})
+
     async def close(self) -> None:
         """Close the session if we created it."""
         if self._own_session and self._session is not None:

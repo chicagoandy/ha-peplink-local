@@ -110,3 +110,9 @@ def test_type_label(br1):
     ]
     assert wan_data.type_label(None) is None
     assert wan_data.type_label("somethingnew") == "somethingnew"
+
+
+def test_is_starlink(br1):
+    assert [wan_data.is_starlink(w) for w in br1.values()] == [True, False, False, False, False]
+    assert wan_data.is_starlink({"type": "cellular", "name": "Starlink backup"}) is False
+    assert wan_data.is_starlink({"type": "ethernet", "name": "WAN", "starlink": {"x": 1}}) is True

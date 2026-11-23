@@ -23,9 +23,6 @@ Monitor and control a Peplink / Pepwave router from Home Assistant over its loca
   - WAN Up Since (timestamp sensor)
   - Cellular WANs: signal (level, RSRP, RSRQ, SINR, RSSI), carrier, technology, band, active SIM, roaming, and **Modem Temperature** (°C, firmware 8.4.1+)
 - **Router Sensors**:
-  - Fan Speed Sensors (speed sensors, dynamically created for each fan)
-  - System Temperature (temperature sensor)
-  - System Temperature Threshold (temperature sensor) 
   - Serial Number (diagnostic sensor)
   - Device Name (diagnostic sensor)
   - Firmware Version (diagnostic sensor)

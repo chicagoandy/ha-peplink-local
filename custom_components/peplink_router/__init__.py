@@ -339,7 +339,7 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # and the undocumented web-UI calls for system info and traffic,
             # which have no documented equivalent. A failed optional call only
             # empties its own sensors.
-            # System info (model, serial, name, temperature, fans) changes
+            # System info (model, serial, name) changes
             # rarely: read it hourly, retry after 5 min if it fails.
             now = time.monotonic()
             system_info_due = (
@@ -379,8 +379,6 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "location", location_info, {"gps": False, "type": "Unknown", "location": {}}
             )
 
-            thermal_sensors = system_info.get("thermal_sensors", {"sensors": []})
-            fan_speeds = system_info.get("fan_speeds", {"fans": []})
             device_info = {"device_info": system_info.get("device_info", {})}
             system_time = system_info.get("system_time", {})
 
@@ -424,8 +422,6 @@ class PeplinkDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return {
                 "wan_status": wan_status,
                 "clients": clients,
-                "thermal_sensors": thermal_sensors,
-                "fan_speeds": fan_speeds,
                 "traffic_stats": traffic_stats,
                 "device_info": device_info_data,
                 "system_time": system_time,

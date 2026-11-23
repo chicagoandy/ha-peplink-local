@@ -50,7 +50,7 @@ ENDPOINTS: list[tuple[str, str]] = [
     ("cmd.ap", "/api/cmd.ap"),
     ("cgi.status.system.info",
      "/cgi-bin/MANGA/api.cgi?func=status.system.info"
-     "&infoType=device%20systemTime%20thermalSensor%20fanSpeed"),
+     "&infoType=device%20systemTime"),
     ("cgi.status.traffic", "/cgi-bin/MANGA/api.cgi?func=status.traffic"),
     ("cgi.info.location", "/cgi-bin/MANGA/api.cgi?func=info.location"),
 ]

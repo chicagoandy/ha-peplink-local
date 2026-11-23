@@ -566,8 +566,8 @@ class PeplinkSensor(CoordinatorEntity, SensorEntity):
         # Keep a reference to the initial data as fallback
         self._initial_sensor_data = sensor_data
         
-        # Use IP address as the prefix for consistent entity IDs
-        self._attr_unique_id = f"{coordinator.host}_{description.key}"
+        # Config entry ID prefix: stable across IP and router-name changes
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{description.key}"
         
         # Use the device name from API if available, otherwise fallback to IP
         device_name = coordinator.device_name or f"Peplink {coordinator.host}"
@@ -674,8 +674,8 @@ class PeplinkWANSensor(CoordinatorEntity, SensorEntity):
         # Keep reference to initial data
         self._initial_sensor_data = sensor_data
         
-        # Use device name as the prefix for consistent entity IDs
-        self._attr_unique_id = f"{coordinator.device_name or coordinator.host}_wan{wan_id}_{description.key}"
+        # Config entry ID prefix: stable across IP and router-name changes
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_wan{wan_id}_{description.key}"
         
         # Use the device name from API if available, otherwise fallback to IP
         device_name = coordinator.device_name or f"Peplink {coordinator.host}"

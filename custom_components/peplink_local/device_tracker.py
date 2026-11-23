@@ -6,6 +6,7 @@ from homeassistant.components.device_tracker.const import SourceType
 from homeassistant.components.device_tracker import ScannerEntity, TrackerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -58,6 +59,7 @@ async def async_setup_entry(
     # One tracker per client MAC. New clients that show up later are added on
     # the next coordinator update, not only the ones present at startup.
     known_macs: set[str] = set()
+    device_registry = dr.async_get(hass)
 
     def _new_client_trackers() -> list[PeplinkClientTracker]:
         new_entities: list[PeplinkClientTracker] = []
@@ -67,8 +69,19 @@ async def async_setup_entry(
             if not mac or mac == "unknown" or mac in known_macs:
                 continue
             known_macs.add(mac)
+            # If another integration already has a device for this MAC
+            # (ESPHome, WLED, a phone app...), join it without renaming it.
+            existing = device_registry.async_get_device(
+                connections={(dr.CONNECTION_NETWORK_MAC, dr.format_mac(mac))}
+            )
             new_entities.append(
-                PeplinkClientTracker(coordinator, entry.entry_id, client.get("name"), mac)
+                PeplinkClientTracker(
+                    coordinator,
+                    entry.entry_id,
+                    client.get("name"),
+                    mac,
+                    name_device=existing is None,
+                )
             )
         return new_entities
 
@@ -179,11 +192,10 @@ class PeplinkClientTracker(CoordinatorEntity, ScannerEntity):
     """Representation of a Peplink client device tracker.
 
     Naming follows Home Assistant's router-tracker convention: the entity has
-    no name of its own and takes its device's name. ScannerEntity creates that
-    device from the MAC address and names it after ``hostname`` (the client
-    name the router reports). If another integration already has a device
-    with this MAC (ESPHome, WLED, a phone...), the tracker joins that device
-    and uses its name. The MAC stays the hidden unique ID, as for every
+    no name of its own and takes its device's name. The device is keyed by
+    the MAC address and named after the client name the router reports. If
+    another integration already has a device with this MAC (ESPHome, WLED, a
+    phone...), the tracker joins that device and keeps its name. The MAC stays the hidden unique ID, as for every
     router integration. Like other router trackers, new client trackers are
     disabled by default (ScannerEntity's default); enable the ones you want.
     """
@@ -195,15 +207,23 @@ class PeplinkClientTracker(CoordinatorEntity, ScannerEntity):
         self,
         coordinator: DataUpdateCoordinator,
         config_entry_id: str,
-        client_name: str,
+        client_name: str | None,
         client_mac: str,
+        name_device: bool = True,
     ):
         """Initialize the device tracker."""
         super().__init__(coordinator)
         self._client_name = client_name or client_mac
         self._client_mac = client_mac
-        # Names the auto-created device; None falls back to the MAC address.
-        self._attr_hostname = client_name if client_name and client_name != "Unknown Device" else None
+        hostname = client_name if client_name and client_name != "Unknown Device" else None
+        self._attr_hostname = hostname
+        # Home Assistant 2027.11+ requires ScannerEntity device info carrying
+        # the MAC. A device that already exists for this MAC keeps its name.
+        self._attr_device_info = DeviceInfo(
+            connections={(dr.CONNECTION_NETWORK_MAC, dr.format_mac(client_mac))}
+        )
+        if name_device:
+            self._attr_device_info["name"] = hostname or client_mac
         self._is_connected = False
         self._ip_address = None
         self._mac_address = client_mac

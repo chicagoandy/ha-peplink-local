@@ -102,3 +102,11 @@ def test_empty_values():
     assert wan_data.status_led({}) is None
     assert wan_data.priority({"priority": None}) is None
     assert wan_data.primary_band({}) == {}
+
+
+def test_type_label(br1):
+    assert [wan_data.type_label(w.get("type")) for w in br1.values()] == [
+        "Ethernet", "Cellular", "WiFi", "WiFi", "VLAN",
+    ]
+    assert wan_data.type_label(None) is None
+    assert wan_data.type_label("somethingnew") == "somethingnew"

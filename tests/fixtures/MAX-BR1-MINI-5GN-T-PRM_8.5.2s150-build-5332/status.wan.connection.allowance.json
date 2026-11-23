@@ -1,0 +1,32 @@
+{
+  "response": {
+    "1": {
+      "enable": false
+    },
+    "2": {
+      "1": {
+        "enable": false
+      },
+      "2": {
+        "enable": false
+      }
+    },
+    "3": {
+      "enable": false
+    },
+    "4": {
+      "enable": false
+    },
+    "5": {
+      "enable": false
+    },
+    "order": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "stat": "ok"
+}

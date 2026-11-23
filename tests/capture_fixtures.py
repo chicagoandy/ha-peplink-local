@@ -201,8 +201,14 @@ def main() -> int:
 
     folder = Path(args.out) / f"{model}_{fw}"
     folder.mkdir(parents=True, exist_ok=True)
-    for name, payload in results.items():
-        clean = redactor.walk(payload)
+    cleaned = {name: redactor.walk(payload) for name, payload in results.items()}
+    # SSIDs also appear inside free text, e.g. "Connected to MyHomeWiFi".
+    for kind in ("ssid", "essid"):
+        for original, placeholder in redactor.maps.get(kind, {}).items():
+            text = json.loads(original)
+            if isinstance(text, str) and len(text) >= 3:
+                cleaned = json.loads(json.dumps(cleaned).replace(text, placeholder))
+    for name, clean in cleaned.items():
         (folder / f"{name}.json").write_text(json.dumps(clean, indent=2, sort_keys=True) + "\n")
 
     archive = shutil.make_archive(str(folder), "zip", folder)

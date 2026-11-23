@@ -1,0 +1,531 @@
+{
+  "response": {
+    "1": {
+      "active": true,
+      "bandwidth": {
+        "download": {
+          "unit": "kbps",
+          "value": 1000000
+        },
+        "upload": {
+          "unit": "kbps",
+          "value": 1000000
+        }
+      },
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "connection": {
+        "bandwidth": {
+          "download": {
+            "unit": "kbps",
+            "value": 1000000
+          },
+          "upload": {
+            "unit": "kbps",
+            "value": 1000000
+          }
+        },
+        "dns": {
+          "auto": true
+        },
+        "hotStandby": {
+          "enable": true
+        },
+        "icmpPing": true,
+        "method": {
+          "detail": {
+            "hostname": "",
+            "managementNetwork": {
+              "ip": "192.168.100.100",
+              "mask": 24
+            }
+          },
+          "type": "dhcp"
+        },
+        "priority": 3,
+        "routingMode": "NAT"
+      },
+      "ddns": {
+        "enable": false
+      },
+      "enable": true,
+      "healthcheck": {
+        "enable": true,
+        "interval": 5,
+        "method": {
+          "detail": {
+            "includePublic": false
+          },
+          "type": "nslookup"
+        },
+        "recovery": 3,
+        "retry": 1,
+        "timeout": 3000
+      },
+      "multipleIp": [],
+      "name": "Starlink",
+      "physical": {
+        "mtu": 1440,
+        "portId": 1,
+        "speed": "Auto",
+        "supportGigaEthernet": true,
+        "type": "ethernet",
+        "virtualType": "ethernet"
+      }
+    },
+    "2": {
+      "active": true,
+      "bandwidth": {
+        "download": {
+          "unit": "kbps",
+          "value": 1000000
+        },
+        "upload": {
+          "unit": "kbps",
+          "value": 1000000
+        }
+      },
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "cellular": {
+        "#deprecatedTag": [
+          "simCardScheme",
+          "preferredSim"
+        ],
+        "alternateSim": {
+          "day": 0,
+          "hour": 0
+        },
+        "idleTimeout": 180,
+        "remoteSim": {
+          "simPool": []
+        },
+        "scheme": {
+          "detail": {
+            "1": {
+              "enable": true,
+              "priority": 2
+            },
+            "2": {
+              "enable": true,
+              "priority": 2
+            },
+            "eSim1": {
+              "enable": true,
+              "priority": 3
+            },
+            "eSim2": {
+              "enable": true,
+              "priority": 3
+            },
+            "fusionSim": {
+              "enable": false
+            },
+            "order": [
+              "1",
+              "2",
+              "remoteSim",
+              "fusionSim",
+              "speedfusionConnect5gLte",
+              "eSim1",
+              "eSim2"
+            ],
+            "remoteSim": {
+              "enable": false
+            },
+            "speedfusionConnect5gLte": {
+              "enable": true,
+              "priority": 1
+            }
+          },
+          "type": "custom"
+        },
+        "signalThreshold": {
+          "signalLevel": [
+            1
+          ]
+        },
+        "sim": {
+          "1": {
+            "bandwidthAllowanceMonitor": {
+              "enable": false,
+              "hasSmtp": false
+            },
+            "simPin": ""
+          },
+          "2": {
+            "bandwidthAllowanceMonitor": {
+              "enable": false,
+              "hasSmtp": false
+            },
+            "simPin": ""
+          },
+          "fusionSim": {
+            "bandwidthAllowanceMonitor": {
+              "enable": false,
+              "hasSmtp": false
+            },
+            "simPin": ""
+          },
+          "order": [
+            "1",
+            "2",
+            "remoteSim",
+            "fusionSim",
+            "speedfusionConnect5gLte"
+          ],
+          "remoteSim": {
+            "bandwidthAllowanceMonitor": {
+              "enable": false,
+              "hasSmtp": false
+            },
+            "simPin": ""
+          },
+          "speedfusionConnect5gLte": {
+            "bandwidthAllowanceMonitor": {
+              "enable": false,
+              "hasSmtp": false
+            },
+            "simPin": ""
+          }
+        },
+        "simCardScheme": ""
+      },
+      "connection": {
+        "bandwidth": {
+          "download": {
+            "unit": "kbps",
+            "value": 1000000
+          },
+          "upload": {
+            "unit": "kbps",
+            "value": 1000000
+          }
+        },
+        "dns": {
+          "auto": true
+        },
+        "hotStandby": {
+          "enable": true
+        },
+        "icmpPing": true,
+        "method": {
+          "detail": {
+            "hostname": ""
+          },
+          "type": "dhcp"
+        },
+        "priority": 4,
+        "routingMode": "NAT"
+      },
+      "ddns": {
+        "enable": false
+      },
+      "enable": true,
+      "healthcheck": {
+        "enable": true,
+        "interval": 5,
+        "method": {
+          "detail": {},
+          "type": "smartcheck"
+        },
+        "recovery": 3,
+        "retry": 3,
+        "timeout": 5000
+      },
+      "multipleIp": [],
+      "name": "Google Fi",
+      "physical": {
+        "mtu": 1428,
+        "portId": 2,
+        "speed": "Auto",
+        "supportGigaEthernet": true,
+        "type": "cellular",
+        "virtualType": "cellular"
+      }
+    },
+    "3": {
+      "active": true,
+      "bandwidth": {
+        "download": {
+          "unit": "kbps",
+          "value": 1000000
+        },
+        "upload": {
+          "unit": "kbps",
+          "value": 1000000
+        }
+      },
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "connection": {
+        "bandwidth": {
+          "download": {
+            "unit": "kbps",
+            "value": 1000000
+          },
+          "upload": {
+            "unit": "kbps",
+            "value": 1000000
+          }
+        },
+        "dns": {
+          "auto": true
+        },
+        "hotStandby": {
+          "enable": true
+        },
+        "icmpPing": true,
+        "pepvpnNat": true,
+        "priority": 2,
+        "routingMode": "IP Forwarding"
+      },
+      "ddns": {
+        "enable": false
+      },
+      "enable": false,
+      "healthcheck": {
+        "enable": true,
+        "interval": 5,
+        "method": {
+          "detail": {
+            "includePublic": false
+          },
+          "type": "nslookup"
+        },
+        "recovery": 3,
+        "retry": 3,
+        "timeout": 5000
+      },
+      "multipleIp": [],
+      "name": "Wi-Fi WAN on 2.4 GHz",
+      "physical": {
+        "mtu": 1500,
+        "portId": 3,
+        "speed": "Auto",
+        "supportGigaEthernet": true,
+        "type": "wifi",
+        "virtualType": "wifi"
+      },
+      "wifi": {
+        "beaconMissCounter": 5,
+        "channelScanInterval": 50,
+        "channelWidth": "auto",
+        "country": 840,
+        "power": "max",
+        "powerBoost": false,
+        "roaming": {
+          "enable": false
+        },
+        "signalThreshold": {
+          "signalLevel": [
+            3
+          ]
+        },
+        "wifiConnectionProfile": {
+          "order": []
+        }
+      }
+    },
+    "4": {
+      "active": true,
+      "bandwidth": {
+        "download": {
+          "unit": "kbps",
+          "value": 1000000
+        },
+        "upload": {
+          "unit": "kbps",
+          "value": 1000000
+        }
+      },
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "connection": {
+        "bandwidth": {
+          "download": {
+            "unit": "kbps",
+            "value": 1000000
+          },
+          "upload": {
+            "unit": "kbps",
+            "value": 1000000
+          }
+        },
+        "dns": {
+          "auto": true
+        },
+        "icmpPing": true,
+        "pepvpnNat": true,
+        "priority": 1,
+        "routingMode": "IP Forwarding"
+      },
+      "ddns": {
+        "enable": false
+      },
+      "enable": true,
+      "healthcheck": {
+        "enable": true,
+        "interval": 5,
+        "method": {
+          "detail": {
+            "includePublic": false
+          },
+          "type": "nslookup"
+        },
+        "recovery": 3,
+        "retry": 3,
+        "timeout": 5000
+      },
+      "multipleIp": [],
+      "name": "Wi-Fi WAN on 5 GHz",
+      "physical": {
+        "mtu": 1500,
+        "portId": 4,
+        "speed": "Auto",
+        "supportGigaEthernet": true,
+        "type": "wifi",
+        "virtualType": "wifi"
+      },
+      "wifi": {
+        "beaconMissCounter": 5,
+        "channelScanInterval": 50,
+        "channelWidth": "auto",
+        "country": 840,
+        "power": "max",
+        "powerBoost": false,
+        "roaming": {
+          "enable": false
+        },
+        "signalThreshold": {
+          "signalLevel": [
+            2
+          ]
+        },
+        "wifiConnectionProfile": {
+          "1": {
+            "dns": {
+              "auto": true
+            },
+            "enable": true,
+            "method": {
+              "type": "dhcp"
+            },
+            "security": {
+              "policy": {
+                "detail": {
+                  "key": "REDACTED"
+                },
+                "type": "WPA2/WPA3-Personal"
+              }
+            },
+            "ssid": "ssid-1"
+          },
+          "2": {
+            "dns": {
+              "auto": true
+            },
+            "enable": true,
+            "method": {
+              "type": "dhcp"
+            },
+            "security": {
+              "policy": {
+                "type": "Open"
+              }
+            },
+            "ssid": "ssid-2"
+          },
+          "order": [
+            2,
+            1
+          ]
+        }
+      }
+    },
+    "5": {
+      "active": true,
+      "bandwidth": {
+        "download": {
+          "unit": "kbps",
+          "value": 1000000
+        },
+        "upload": {
+          "unit": "kbps",
+          "value": 1000000
+        }
+      },
+      "bandwidthAllowanceMonitor": {
+        "enable": false,
+        "hasSmtp": false
+      },
+      "connection": {
+        "bandwidth": {
+          "download": {
+            "unit": "kbps",
+            "value": 1000000
+          },
+          "upload": {
+            "unit": "kbps",
+            "value": 1000000
+          }
+        },
+        "dns": {
+          "auto": true
+        },
+        "icmpPing": true,
+        "method": {
+          "detail": {
+            "hostname": ""
+          },
+          "type": "dhcp"
+        },
+        "priority": 1,
+        "routingMode": "NAT"
+      },
+      "ddns": {
+        "enable": false
+      },
+      "enable": false,
+      "healthcheck": {
+        "enable": true,
+        "interval": 5,
+        "method": {
+          "detail": {
+            "includePublic": false
+          },
+          "type": "nslookup"
+        },
+        "recovery": 3,
+        "retry": 3,
+        "timeout": 5000
+      },
+      "multipleIp": [],
+      "name": "VLAN WAN 1",
+      "physical": {
+        "advertise": true,
+        "portId": 5,
+        "speed": "",
+        "supportGigaEthernet": true,
+        "type": "wovlan",
+        "virtualType": "wovlan"
+      }
+    },
+    "order": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "stat": "ok"
+}

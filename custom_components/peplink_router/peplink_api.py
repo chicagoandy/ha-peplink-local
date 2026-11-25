@@ -949,6 +949,44 @@ class PeplinkAPI:
         )
         await self.apply_config()
 
+    async def set_wan_health_check(
+        self,
+        conn_id: int | str,
+        *,
+        retry: int | None = None,
+        timeout_ms: int | None = None,
+        interval: int | None = None,
+        recovery: int | None = None,
+    ) -> dict[str, Any]:
+        """Change a WAN's health-check tolerances, then apply.
+
+        Reads the WAN's current healthcheck block (config.wan.connection) and
+        sends it back whole with only the given values changed, so the method
+        (DNS, ping, SmartCheck...) and its targets are kept. Returns the block
+        that was sent.
+        """
+        changes = {
+            key: int(value)
+            for key, value in (
+                ("retry", retry), ("timeout", timeout_ms),
+                ("interval", interval), ("recovery", recovery),
+            )
+            if value is not None
+        }
+        if not changes:
+            raise ValueError("Give at least one health-check setting to change")
+        config = await self.get_wan_config()
+        current = (config.get(str(conn_id)) or {}).get("healthcheck")
+        if not isinstance(current, dict):
+            raise PeplinkCommandError(f"WAN {conn_id} has no health-check settings")
+        healthcheck = {**current, **changes}
+        await self._post(
+            "config.wan.connection",
+            {"action": "update", "list": [{"id": int(conn_id), "healthcheck": healthcheck}]},
+        )
+        await self.apply_config()
+        return healthcheck
+
     async def reset_cellular_module(self, conn_id: int | str) -> None:
         """Power-cycle a cellular modem (cmd.cellularModule.reset, fw 8.0.0+)."""
         await self._post("cmd.cellularModule.reset", {"connId": int(conn_id)})

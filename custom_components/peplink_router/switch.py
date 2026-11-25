@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
+import voluptuous as vol
+
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.helpers import entity_platform
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -13,6 +17,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .devices import wan_device_info
 from .entity_base import PeplinkControlEntity
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -24,6 +30,19 @@ async def async_setup_entry(
         PeplinkWANEnableSwitch(coordinator, conn)
         for conn in connections
         if "enable" in conn
+    )
+
+    # Action targeting a WAN's Enabled switch.
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        "set_health_check",
+        {
+            vol.Optional("retries"): vol.All(vol.Coerce(int), vol.Range(min=1, max=20)),
+            vol.Optional("timeout"): vol.All(vol.Coerce(float), vol.Range(min=1, max=60)),
+            vol.Optional("interval"): vol.All(vol.Coerce(int), vol.Range(min=1, max=300)),
+            vol.Optional("recovery_retries"): vol.All(vol.Coerce(int), vol.Range(min=1, max=20)),
+        },
+        "async_set_health_check",
     )
 
 
@@ -54,3 +73,24 @@ class PeplinkWANEnableSwitch(PeplinkControlEntity, SwitchEntity):
             lambda: self.coordinator.api.set_wan_enabled(self._wan_id, False),
             f"disable WAN {self._wan_id}",
         )
+
+    async def async_set_health_check(
+        self,
+        retries: int | None = None,
+        timeout: float | None = None,
+        interval: int | None = None,
+        recovery_retries: int | None = None,
+    ) -> None:
+        """Make this WAN's health check more or less tolerant (timeout in seconds)."""
+
+        async def _apply() -> None:
+            sent = await self.coordinator.api.set_wan_health_check(
+                self._wan_id,
+                retry=retries,
+                timeout_ms=round(timeout * 1000) if timeout is not None else None,
+                interval=interval,
+                recovery=recovery_retries,
+            )
+            _LOGGER.info("WAN %s health check set to %s", self._wan_id, sent)
+
+        await self._run(_apply, f"change WAN {self._wan_id} health check")

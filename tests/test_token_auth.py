@@ -107,6 +107,29 @@ async def test_rejected_client_raises_auth_failed(token_api: PeplinkAPI) -> None
             await token_api.connect()
 
 
+@pytest.mark.parametrize(("status", "payload"), [
+    (200, {"stat": "fail", "message": "Internal Error"}),
+    (200, {"stat": "fail", "code": 500, "message": "Server error"}),
+    (503, {"stat": "fail", "message": "Service Unavailable"}),
+    (200, ["not", "a", "peplink", "answer"]),
+])
+async def test_temporary_router_error_is_not_an_auth_failure(
+    token_api: PeplinkAPI, status: int, payload
+) -> None:
+    """Seen after an HA upgrade: 'Internal Error', then the same client worked."""
+    with aioresponses() as m:
+        m.post(f"{BASE}/api/auth.token.grant", status=status, payload=payload)
+        assert await token_api.connect() is False
+
+
+async def test_temporary_error_then_success(token_api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        m.post(f"{BASE}/api/auth.token.grant", payload={"stat": "fail", "message": "Internal Error"})
+        grant(m)
+        assert await token_api.connect() is False
+        assert await token_api.connect() is True
+
+
 async def test_unreachable_router_is_not_an_auth_failure(token_api: PeplinkAPI) -> None:
     with aioresponses() as m:
         m.post(f"{BASE}/api/auth.token.grant", exception=aiohttp.ClientConnectionError("down"))

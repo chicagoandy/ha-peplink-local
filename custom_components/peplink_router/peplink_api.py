@@ -37,6 +37,28 @@ ROUTING_MODES = ("NAT", "IP Forwarding")
 STARLINK_ACTIONS = ("reboot", "stow", "unstow")
 
 
+_TEMPORARY_MESSAGES = ("internal error", "busy", "try again", "timeout", "not ready")
+
+
+def _is_temporary_failure(status: int, data: Any) -> bool:
+    """True when a failed token request is the router's fault, not a bad client.
+
+    A router that is busy or still starting answers auth.token.grant with
+    {"stat": "fail", "message": "Internal Error"} or an HTTP 5xx. That must not
+    make Home Assistant ask the user to sign in again (seen after an HA upgrade:
+    the same client worked moments later).
+    """
+    if status >= 500:
+        return True
+    if not isinstance(data, dict):
+        return True  # not a Peplink answer at all
+    code = data.get("code")
+    if isinstance(code, int) and code >= 500:
+        return True
+    message = str(data.get("message") or "").lower()
+    return any(text in message for text in _TEMPORARY_MESSAGES)
+
+
 def _create_insecure_ssl_context():
     """Create an insecure SSL context (non-blocking function)."""
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -107,13 +129,16 @@ class PeplinkAPI:
         """Get an access token for the API client (auth.token.grant).
 
         Raises PeplinkAuthFailed if the router rejects the client (removed on
-        the router, or wrong secret); returns False if it can't be reached.
+        the router, or wrong secret); returns False if it can't be reached or
+        answers with a temporary error ("Internal Error", HTTP 5xx), so Home
+        Assistant retries setup instead of asking the user to sign in again.
         """
         session = await self._get_session()
         url = urljoin(self.base_url, "/api/auth.token.grant")
         body = {"clientId": self.client_id, "clientSecret": self.client_secret, "scope": "api"}
         try:
             async with session.post(url, json=body) as response:
+                status = response.status
                 data = await response.json(content_type=None)
         except aiohttp.ClientConnectorCertificateError as err:
             raise PeplinkSSLError(f"SSL Certificate validation failed: {err}") from err
@@ -126,6 +151,10 @@ class PeplinkAPI:
                 and result.get("accessToken")):
             self._connected = False
             message = data.get("message") if isinstance(data, dict) else data
+            if _is_temporary_failure(status, data):
+                _LOGGER.warning("The router could not issue an access token right now (%s); "
+                                "will retry", message)
+                return False
             raise PeplinkAuthFailed(f"The router rejected the API client: {message}")
         self._access_token = result["accessToken"]
         try:

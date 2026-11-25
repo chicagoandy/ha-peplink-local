@@ -239,3 +239,28 @@ async def test_creates_client_when_list_fails(admin_api: PeplinkAPI) -> None:
         admin_router(m, {"stat": "fail", "code": 403, "message": "Forbidden"})
         assert await admin_api.connect()
         assert await admin_api.get_or_create_api_client("Home Assistant") == ("new-id", "new-sec")
+
+
+async def test_set_wan_health_check_keeps_method_and_applies(token_api: PeplinkAPI) -> None:
+    config = load(BR1_MINI, "config.wan.connection")
+    with aioresponses() as m:
+        grant(m)
+        m.get(any_query("/api/config.wan.connection"), payload=config)
+        m.post(any_query("/api/config.wan.connection"), payload={"stat": "ok"})
+        m.post(any_query("/api/cmd.config.apply"), payload={"stat": "ok"})
+        sent = await token_api.set_wan_health_check(1, retry=3, timeout_ms=4000)
+
+        assert sent["retry"] == 3 and sent["timeout"] == 4000
+        before = config["response"]["1"]["healthcheck"]
+        assert sent["method"] == before["method"]
+        assert sent["interval"] == before["interval"] and sent["recovery"] == before["recovery"]
+
+        posts = [(k, v) for k, v in m.requests.items() if k[0] == "POST" and "config.wan.connection" in str(k[1])]
+        body = posts[0][1][0].kwargs["json"]
+        assert body == {"action": "update", "list": [{"id": 1, "healthcheck": sent}]}
+        assert any("cmd.config.apply" in str(k[1]) for k in m.requests)
+
+
+async def test_set_wan_health_check_needs_a_change(token_api: PeplinkAPI) -> None:
+    with pytest.raises(ValueError):
+        await token_api.set_wan_health_check(1)

@@ -119,6 +119,28 @@
           "description": "Network to forget. Leave empty to use the one chosen in the Network select."
         }
       }
+    },
+    "set_health_check": {
+      "name": "Set WAN health check",
+      "description": "Changes how tolerant the router is before it marks a WAN as down and fails over. Target the WAN's Enabled switch. Only the values you give change; the check method is kept.",
+      "fields": {
+        "retries": {
+          "name": "Retries",
+          "description": "Failed checks in a row before the WAN is marked down. Higher rides out short dropouts (e.g. Starlink's 1-second satellite gaps)."
+        },
+        "timeout": {
+          "name": "Timeout",
+          "description": "Seconds each check waits for an answer."
+        },
+        "interval": {
+          "name": "Interval",
+          "description": "Seconds between checks."
+        },
+        "recovery_retries": {
+          "name": "Recovery retries",
+          "description": "Successful checks in a row before a failed WAN is used again."
+        }
+      }
     }
   }
 }

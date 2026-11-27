@@ -33,6 +33,8 @@ class PeplinkCommandError(Exception):
     """The router rejected a configuration change or command."""
 
 
+MIN_PRIORITY = 1
+MAX_PRIORITY = 4
 ROUTING_MODES = ("NAT", "IP Forwarding")
 STARLINK_ACTIONS = ("reboot", "stow", "unstow")
 
@@ -937,6 +939,22 @@ class PeplinkAPI:
             "config.wan.connection",
             {"action": "update", "list": [{"id": int(conn_id), "enable": bool(enabled)}]},
         )
+        await self.apply_config()
+
+    async def set_wan_priorities(self, priorities: dict[int | str, int]) -> None:
+        """Set the priority group (1 = highest) of one or more WANs in one change, then apply.
+
+        Several WANs go in one request, so a swap (e.g. Starlink 3 <-> cellular 4)
+        is applied at once instead of passing through a state where both share a group.
+        """
+        if not priorities:
+            raise ValueError("No priorities given")
+        items = []
+        for conn_id, prio in priorities.items():
+            if not isinstance(prio, int) or isinstance(prio, bool) or not MIN_PRIORITY <= prio <= MAX_PRIORITY:
+                raise ValueError(f"Priority must be {MIN_PRIORITY}-{MAX_PRIORITY}, not {prio!r}")
+            items.append({"id": int(conn_id), "connection": {"priority": prio}})
+        await self._post("config.wan.connection", {"action": "update", "list": items})
         await self.apply_config()
 
     async def set_wan_routing_mode(self, conn_id: int | str, mode: str) -> None:

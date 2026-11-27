@@ -183,6 +183,28 @@ async def test_set_routing_mode_posts_and_applies(api: PeplinkAPI) -> None:
         assert len(posted(m, "cmd.config.apply")) == 1
 
 
+async def test_set_wan_priorities_one_change_then_apply(api: PeplinkAPI) -> None:
+    with aioresponses() as m:
+        mock_router(m, BR1_MINI)
+        m.post(f"{BASE}/api/config.wan.connection", payload={"stat": "ok", "response": {}})
+        m.post(f"{BASE}/api/cmd.config.apply", payload={"stat": "ok"})
+        await api.connect()
+        await api.set_wan_priorities({"1": 4, 2: 3})
+        assert posted(m, "config.wan.connection") == [
+            {"action": "update", "list": [
+                {"id": 1, "connection": {"priority": 4}},
+                {"id": 2, "connection": {"priority": 3}},
+            ]}
+        ]
+        assert len(posted(m, "cmd.config.apply")) == 1
+
+
+@pytest.mark.parametrize("bad", [{}, {1: 0}, {1: 5}, {1: "3"}, {1: True}])
+async def test_set_wan_priorities_rejects_bad_values(api: PeplinkAPI, bad) -> None:
+    with pytest.raises(ValueError):
+        await api.set_wan_priorities(bad)
+
+
 async def test_routing_mode_rejects_unknown_value(api: PeplinkAPI) -> None:
     with pytest.raises(ValueError):
         await api.set_wan_routing_mode(4, "Bridge")

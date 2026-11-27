@@ -17,7 +17,7 @@ from . import wan_data, wifi
 from .const import DOMAIN
 from .devices import wan_device_info
 from .entity_base import PeplinkControlEntity
-from .peplink_api import ROUTING_MODES
+from .peplink_api import MAX_PRIORITY, MIN_PRIORITY, ROUTING_MODES
 from homeassistant.exceptions import HomeAssistantError
 
 
@@ -30,6 +30,11 @@ async def async_setup_entry(
         PeplinkRoutingModeSelect(coordinator, conn)
         for conn in connections
         if wan_data.routing_mode(conn) is not None
+    ]
+    entities += [
+        PeplinkPrioritySelect(coordinator, conn)
+        for conn in connections
+        if conn.get("enable", True) is not False and wan_data.priority(conn) is not None
     ]
     entities += [
         PeplinkWifiNetworkSelect(coordinator, conn)
@@ -74,6 +79,37 @@ class PeplinkRoutingModeSelect(PeplinkControlEntity, SelectEntity):
         await self._run(
             lambda: self.coordinator.api.set_wan_routing_mode(self._wan_id, option),
             f"set WAN {self._wan_id} routing mode to {option}",
+        )
+
+
+PRIORITY_OPTIONS = [str(n) for n in range(MIN_PRIORITY, MAX_PRIORITY + 1)]
+
+
+class PeplinkPrioritySelect(PeplinkControlEntity, SelectEntity):
+    """Priority group of one WAN, 1 = highest (config.wan.connection + apply).
+
+    WANs in a lower group are only used when every WAN in the groups above is down.
+    """
+
+    _attr_name = "Priority"
+    _attr_icon = "mdi:sort-numeric-ascending"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_options = PRIORITY_OPTIONS
+
+    def __init__(self, coordinator: Any, conn: dict[str, Any]) -> None:
+        super().__init__(coordinator, str(conn.get("id")), "priority")
+        self._attr_device_info = wan_device_info(coordinator, conn)
+
+    @property
+    def current_option(self) -> str | None:
+        conn = self._connection()
+        prio = wan_data.priority(conn) if conn else None
+        return str(prio) if prio is not None and str(prio) in PRIORITY_OPTIONS else None
+
+    async def async_select_option(self, option: str) -> None:
+        await self._run(
+            lambda: self.coordinator.api.set_wan_priorities({self._wan_id: int(option)}),
+            f"set WAN {self._wan_id} priority to {option}",
         )
 
 

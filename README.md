@@ -42,6 +42,7 @@ Monitor and control a Peplink / Pepwave router from Home Assistant over its loca
 - **Controls** (they change the router's configuration):
   - **Enabled** switch per WAN (`config.wan.connection`, then apply)
   - **Routing Mode** select per WAN: NAT or IP Forwarding (then apply)
+  - **Priority** select per enabled WAN: priority group 1-4, 1 = highest (then apply). WANs in a lower group are used only when every WAN above is down; swap two WANs' groups to change which one is preferred
   - **Reset Cellular Module** and **Rescan Cellular Network** buttons for cellular WANs
   - **Reboot** button for the router
   - **Reboot / Stow / Unstow Starlink** buttons for a WAN named "Starlink" (firmware 8.5.0+, needs a Care Plan)
